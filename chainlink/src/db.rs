@@ -5,7 +5,7 @@ use std::path::Path;
 
 use crate::models::{Comment, Issue, Session};
 
-const SCHEMA_VERSION: i32 = 3;
+const SCHEMA_VERSION: i32 = 6;
 
 pub struct Database {
     conn: Connection,
@@ -93,6 +93,35 @@ impl Database {
                     FOREIGN KEY (issue_id) REFERENCES issues(id) ON DELETE CASCADE
                 );
 
+                -- Relations (related issues, bidirectional)
+                CREATE TABLE IF NOT EXISTS relations (
+                    issue_id_1 INTEGER NOT NULL,
+                    issue_id_2 INTEGER NOT NULL,
+                    created_at TEXT NOT NULL,
+                    PRIMARY KEY (issue_id_1, issue_id_2),
+                    FOREIGN KEY (issue_id_1) REFERENCES issues(id) ON DELETE CASCADE,
+                    FOREIGN KEY (issue_id_2) REFERENCES issues(id) ON DELETE CASCADE
+                );
+
+                -- Milestones
+                CREATE TABLE IF NOT EXISTS milestones (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    description TEXT,
+                    status TEXT NOT NULL DEFAULT 'open',
+                    created_at TEXT NOT NULL,
+                    closed_at TEXT
+                );
+
+                -- Milestone-Issue relationship (many-to-many)
+                CREATE TABLE IF NOT EXISTS milestone_issues (
+                    milestone_id INTEGER NOT NULL,
+                    issue_id INTEGER NOT NULL,
+                    PRIMARY KEY (milestone_id, issue_id),
+                    FOREIGN KEY (milestone_id) REFERENCES milestones(id) ON DELETE CASCADE,
+                    FOREIGN KEY (issue_id) REFERENCES issues(id) ON DELETE CASCADE
+                );
+
                 -- Indexes
                 CREATE INDEX IF NOT EXISTS idx_issues_status ON issues(status);
                 CREATE INDEX IF NOT EXISTS idx_issues_priority ON issues(priority);
@@ -102,6 +131,10 @@ impl Database {
                 CREATE INDEX IF NOT EXISTS idx_deps_blocked ON dependencies(blocked_id);
                 CREATE INDEX IF NOT EXISTS idx_issues_parent ON issues(parent_id);
                 CREATE INDEX IF NOT EXISTS idx_time_entries_issue ON time_entries(issue_id);
+                CREATE INDEX IF NOT EXISTS idx_relations_1 ON relations(issue_id_1);
+                CREATE INDEX IF NOT EXISTS idx_relations_2 ON relations(issue_id_2);
+                CREATE INDEX IF NOT EXISTS idx_milestone_issues_m ON milestone_issues(milestone_id);
+                CREATE INDEX IF NOT EXISTS idx_milestone_issues_i ON milestone_issues(issue_id);
                 "#,
             )?;
 
@@ -596,6 +629,316 @@ impl Database {
             )
             .unwrap_or(0);
         Ok(total)
+    }
+
+    /// Search issues by query string across titles, descriptions, and comments
+    pub fn search_issues(&self, query: &str) -> Result<Vec<Issue>> {
+        let pattern = format!("%{}%", query);
+        let mut stmt = self.conn.prepare(
+            r#"
+            SELECT DISTINCT i.id, i.title, i.description, i.status, i.priority, i.parent_id, i.created_at, i.updated_at, i.closed_at
+            FROM issues i
+            LEFT JOIN comments c ON i.id = c.issue_id
+            WHERE i.title LIKE ?1 COLLATE NOCASE
+               OR i.description LIKE ?1 COLLATE NOCASE
+               OR c.content LIKE ?1 COLLATE NOCASE
+            ORDER BY i.id DESC
+            "#,
+        )?;
+
+        let issues = stmt
+            .query_map([&pattern], |row| {
+                Ok(Issue {
+                    id: row.get(0)?,
+                    title: row.get(1)?,
+                    description: row.get(2)?,
+                    status: row.get(3)?,
+                    priority: row.get(4)?,
+                    parent_id: row.get(5)?,
+                    created_at: parse_datetime(row.get::<_, String>(6)?),
+                    updated_at: parse_datetime(row.get::<_, String>(7)?),
+                    closed_at: row.get::<_, Option<String>>(8)?.map(parse_datetime),
+                })
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+
+        Ok(issues)
+    }
+
+    // Relations (bidirectional)
+    pub fn add_relation(&self, issue_id_1: i64, issue_id_2: i64) -> Result<bool> {
+        if issue_id_1 == issue_id_2 {
+            anyhow::bail!("Cannot relate an issue to itself");
+        }
+        // Store with smaller ID first for consistency
+        let (a, b) = if issue_id_1 < issue_id_2 {
+            (issue_id_1, issue_id_2)
+        } else {
+            (issue_id_2, issue_id_1)
+        };
+        let now = Utc::now().to_rfc3339();
+        let result = self.conn.execute(
+            "INSERT OR IGNORE INTO relations (issue_id_1, issue_id_2, created_at) VALUES (?1, ?2, ?3)",
+            params![a, b, now],
+        )?;
+        Ok(result > 0)
+    }
+
+    pub fn remove_relation(&self, issue_id_1: i64, issue_id_2: i64) -> Result<bool> {
+        let (a, b) = if issue_id_1 < issue_id_2 {
+            (issue_id_1, issue_id_2)
+        } else {
+            (issue_id_2, issue_id_1)
+        };
+        let rows = self.conn.execute(
+            "DELETE FROM relations WHERE issue_id_1 = ?1 AND issue_id_2 = ?2",
+            params![a, b],
+        )?;
+        Ok(rows > 0)
+    }
+
+    pub fn update_parent(&self, id: i64, parent_id: Option<i64>) -> Result<bool> {
+        let now = chrono::Utc::now().to_rfc3339();
+        let rows = self.conn.execute(
+            "UPDATE issues SET parent_id = ?1, updated_at = ?2 WHERE id = ?3",
+            params![parent_id, now, id],
+        )?;
+        Ok(rows > 0)
+    }
+
+    pub fn get_related_issues(&self, issue_id: i64) -> Result<Vec<Issue>> {
+        let mut stmt = self.conn.prepare(
+            r#"
+            SELECT i.id, i.title, i.description, i.status, i.priority, i.parent_id, i.created_at, i.updated_at, i.closed_at
+            FROM issues i
+            WHERE i.id IN (
+                SELECT issue_id_2 FROM relations WHERE issue_id_1 = ?1
+                UNION
+                SELECT issue_id_1 FROM relations WHERE issue_id_2 = ?1
+            )
+            ORDER BY i.id
+            "#,
+        )?;
+
+        let issues = stmt
+            .query_map([issue_id], |row| {
+                Ok(Issue {
+                    id: row.get(0)?,
+                    title: row.get(1)?,
+                    description: row.get(2)?,
+                    status: row.get(3)?,
+                    priority: row.get(4)?,
+                    parent_id: row.get(5)?,
+                    created_at: parse_datetime(row.get::<_, String>(6)?),
+                    updated_at: parse_datetime(row.get::<_, String>(7)?),
+                    closed_at: row.get::<_, Option<String>>(8)?.map(parse_datetime),
+                })
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+
+        Ok(issues)
+    }
+
+    // Milestones
+    pub fn create_milestone(&self, name: &str, description: Option<&str>) -> Result<i64> {
+        let now = Utc::now().to_rfc3339();
+        self.conn.execute(
+            "INSERT INTO milestones (name, description, status, created_at) VALUES (?1, ?2, 'open', ?3)",
+            params![name, description, now],
+        )?;
+        Ok(self.conn.last_insert_rowid())
+    }
+
+    pub fn get_milestone(&self, id: i64) -> Result<Option<crate::models::Milestone>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, name, description, status, created_at, closed_at FROM milestones WHERE id = ?1",
+        )?;
+
+        let milestone = stmt
+            .query_row([id], |row| {
+                Ok(crate::models::Milestone {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    description: row.get(2)?,
+                    status: row.get(3)?,
+                    created_at: parse_datetime(row.get::<_, String>(4)?),
+                    closed_at: row.get::<_, Option<String>>(5)?.map(parse_datetime),
+                })
+            })
+            .ok();
+
+        Ok(milestone)
+    }
+
+    pub fn list_milestones(&self, status: Option<&str>) -> Result<Vec<crate::models::Milestone>> {
+        let sql = if let Some(s) = status {
+            if s == "all" {
+                "SELECT id, name, description, status, created_at, closed_at FROM milestones ORDER BY id DESC".to_string()
+            } else {
+                format!("SELECT id, name, description, status, created_at, closed_at FROM milestones WHERE status = '{}' ORDER BY id DESC", s)
+            }
+        } else {
+            "SELECT id, name, description, status, created_at, closed_at FROM milestones WHERE status = 'open' ORDER BY id DESC".to_string()
+        };
+
+        let mut stmt = self.conn.prepare(&sql)?;
+        let milestones = stmt
+            .query_map([], |row| {
+                Ok(crate::models::Milestone {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    description: row.get(2)?,
+                    status: row.get(3)?,
+                    created_at: parse_datetime(row.get::<_, String>(4)?),
+                    closed_at: row.get::<_, Option<String>>(5)?.map(parse_datetime),
+                })
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+
+        Ok(milestones)
+    }
+
+    pub fn add_issue_to_milestone(&self, milestone_id: i64, issue_id: i64) -> Result<bool> {
+        let result = self.conn.execute(
+            "INSERT OR IGNORE INTO milestone_issues (milestone_id, issue_id) VALUES (?1, ?2)",
+            params![milestone_id, issue_id],
+        )?;
+        Ok(result > 0)
+    }
+
+    pub fn remove_issue_from_milestone(&self, milestone_id: i64, issue_id: i64) -> Result<bool> {
+        let rows = self.conn.execute(
+            "DELETE FROM milestone_issues WHERE milestone_id = ?1 AND issue_id = ?2",
+            params![milestone_id, issue_id],
+        )?;
+        Ok(rows > 0)
+    }
+
+    pub fn get_milestone_issues(&self, milestone_id: i64) -> Result<Vec<Issue>> {
+        let mut stmt = self.conn.prepare(
+            r#"
+            SELECT i.id, i.title, i.description, i.status, i.priority, i.parent_id, i.created_at, i.updated_at, i.closed_at
+            FROM issues i
+            JOIN milestone_issues mi ON i.id = mi.issue_id
+            WHERE mi.milestone_id = ?1
+            ORDER BY i.id
+            "#,
+        )?;
+
+        let issues = stmt
+            .query_map([milestone_id], |row| {
+                Ok(Issue {
+                    id: row.get(0)?,
+                    title: row.get(1)?,
+                    description: row.get(2)?,
+                    status: row.get(3)?,
+                    priority: row.get(4)?,
+                    parent_id: row.get(5)?,
+                    created_at: parse_datetime(row.get::<_, String>(6)?),
+                    updated_at: parse_datetime(row.get::<_, String>(7)?),
+                    closed_at: row.get::<_, Option<String>>(8)?.map(parse_datetime),
+                })
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+
+        Ok(issues)
+    }
+
+    pub fn close_milestone(&self, id: i64) -> Result<bool> {
+        let now = Utc::now().to_rfc3339();
+        let rows = self.conn.execute(
+            "UPDATE milestones SET status = 'closed', closed_at = ?1 WHERE id = ?2",
+            params![now, id],
+        )?;
+        Ok(rows > 0)
+    }
+
+    pub fn delete_milestone(&self, id: i64) -> Result<bool> {
+        let rows = self.conn.execute("DELETE FROM milestones WHERE id = ?1", [id])?;
+        Ok(rows > 0)
+    }
+
+    pub fn get_issue_milestone(&self, issue_id: i64) -> Result<Option<crate::models::Milestone>> {
+        let mut stmt = self.conn.prepare(
+            r#"
+            SELECT m.id, m.name, m.description, m.status, m.created_at, m.closed_at
+            FROM milestones m
+            JOIN milestone_issues mi ON m.id = mi.milestone_id
+            WHERE mi.issue_id = ?1
+            LIMIT 1
+            "#,
+        )?;
+
+        let milestone = stmt
+            .query_row([issue_id], |row| {
+                Ok(crate::models::Milestone {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    description: row.get(2)?,
+                    status: row.get(3)?,
+                    created_at: parse_datetime(row.get::<_, String>(4)?),
+                    closed_at: row.get::<_, Option<String>>(5)?.map(parse_datetime),
+                })
+            })
+            .ok();
+
+        Ok(milestone)
+    }
+
+    // Archiving
+    pub fn archive_issue(&self, id: i64) -> Result<bool> {
+        let now = Utc::now().to_rfc3339();
+        let rows = self.conn.execute(
+            "UPDATE issues SET status = 'archived', updated_at = ?1 WHERE id = ?2 AND status = 'closed'",
+            params![now, id],
+        )?;
+        Ok(rows > 0)
+    }
+
+    pub fn unarchive_issue(&self, id: i64) -> Result<bool> {
+        let now = Utc::now().to_rfc3339();
+        let rows = self.conn.execute(
+            "UPDATE issues SET status = 'closed', updated_at = ?1 WHERE id = ?2 AND status = 'archived'",
+            params![now, id],
+        )?;
+        Ok(rows > 0)
+    }
+
+    pub fn list_archived_issues(&self) -> Result<Vec<Issue>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, title, description, status, priority, parent_id, created_at, updated_at, closed_at FROM issues WHERE status = 'archived' ORDER BY id DESC",
+        )?;
+
+        let issues = stmt
+            .query_map([], |row| {
+                Ok(Issue {
+                    id: row.get(0)?,
+                    title: row.get(1)?,
+                    description: row.get(2)?,
+                    status: row.get(3)?,
+                    priority: row.get(4)?,
+                    parent_id: row.get(5)?,
+                    created_at: parse_datetime(row.get::<_, String>(6)?),
+                    updated_at: parse_datetime(row.get::<_, String>(7)?),
+                    closed_at: row.get::<_, Option<String>>(8)?.map(parse_datetime),
+                })
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+
+        Ok(issues)
+    }
+
+    pub fn archive_older_than(&self, days: i64) -> Result<i32> {
+        let cutoff = Utc::now() - chrono::Duration::days(days);
+        let cutoff_str = cutoff.to_rfc3339();
+        let now = Utc::now().to_rfc3339();
+
+        let rows = self.conn.execute(
+            "UPDATE issues SET status = 'archived', updated_at = ?1 WHERE status = 'closed' AND closed_at < ?2",
+            params![now, cutoff_str],
+        )?;
+
+        Ok(rows as i32)
     }
 }
 

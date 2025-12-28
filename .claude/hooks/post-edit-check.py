@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Post-edit hook that detects stub patterns and runs linters.
+Post-edit hook that detects stub patterns, runs linters, and reminds about tests.
 Runs after Write/Edit tool usage.
 """
 
@@ -9,6 +9,8 @@ import sys
 import os
 import re
 import subprocess
+import glob
+import time
 
 # Stub patterns to detect (compiled regex for performance)
 STUB_PATTERNS = [
@@ -164,6 +166,134 @@ def run_linter(file_path, max_errors=10):
     return errors
 
 
+def is_test_file(file_path):
+    """Check if file is a test file."""
+    basename = os.path.basename(file_path).lower()
+    dirname = os.path.dirname(file_path).lower()
+
+    # Common test file patterns
+    test_patterns = [
+        'test_', '_test.', '.test.', 'spec.', '_spec.',
+        'tests.', 'testing.', 'mock.', '_mock.'
+    ]
+    # Common test directories
+    test_dirs = ['test', 'tests', '__tests__', 'spec', 'specs', 'testing']
+
+    for pattern in test_patterns:
+        if pattern in basename:
+            return True
+
+    for test_dir in test_dirs:
+        if test_dir in dirname.split(os.sep):
+            return True
+
+    return False
+
+
+def find_test_files(file_path, project_root):
+    """Find test files related to source file."""
+    if not project_root:
+        return []
+
+    ext = os.path.splitext(file_path)[1]
+    basename = os.path.basename(file_path)
+    name_without_ext = os.path.splitext(basename)[0]
+
+    # Patterns to look for
+    test_patterns = []
+
+    if ext == '.rs':
+        # Rust: look for mod tests in same file, or tests/ directory
+        test_patterns = [
+            os.path.join(project_root, 'tests', '**', f'*{name_without_ext}*'),
+            os.path.join(project_root, '**', 'tests', f'*{name_without_ext}*'),
+        ]
+    elif ext == '.py':
+        test_patterns = [
+            os.path.join(project_root, '**', f'test_{name_without_ext}.py'),
+            os.path.join(project_root, '**', f'{name_without_ext}_test.py'),
+            os.path.join(project_root, 'tests', '**', f'*{name_without_ext}*.py'),
+        ]
+    elif ext in ('.js', '.ts', '.tsx', '.jsx'):
+        base = name_without_ext.replace('.test', '').replace('.spec', '')
+        test_patterns = [
+            os.path.join(project_root, '**', f'{base}.test{ext}'),
+            os.path.join(project_root, '**', f'{base}.spec{ext}'),
+            os.path.join(project_root, '**', '__tests__', f'{base}*'),
+        ]
+    elif ext == '.go':
+        test_patterns = [
+            os.path.join(os.path.dirname(file_path), f'{name_without_ext}_test.go'),
+        ]
+
+    found = []
+    for pattern in test_patterns:
+        found.extend(glob.glob(pattern, recursive=True))
+
+    return list(set(found))[:5]  # Limit to 5
+
+
+def get_test_reminder(file_path, project_root):
+    """Check if tests should be run and return reminder message."""
+    if is_test_file(file_path):
+        return None  # Editing a test file, no reminder needed
+
+    ext = os.path.splitext(file_path)[1]
+    code_extensions = ('.rs', '.py', '.js', '.ts', '.tsx', '.jsx', '.go')
+
+    if ext not in code_extensions:
+        return None
+
+    # Check for marker file
+    marker_dir = project_root or os.path.dirname(file_path)
+    marker_file = os.path.join(marker_dir, '.chainlink', 'last_test_run')
+
+    code_modified_after_tests = False
+
+    if os.path.exists(marker_file):
+        try:
+            marker_mtime = os.path.getmtime(marker_file)
+            file_mtime = os.path.getmtime(file_path)
+            code_modified_after_tests = file_mtime > marker_mtime
+        except OSError:
+            code_modified_after_tests = True
+    else:
+        # No marker = tests haven't been run
+        code_modified_after_tests = True
+
+    if not code_modified_after_tests:
+        return None
+
+    # Find test files
+    test_files = find_test_files(file_path, project_root)
+
+    # Generate test command based on project type
+    test_cmd = None
+    if ext == '.rs' and project_root:
+        if os.path.exists(os.path.join(project_root, 'Cargo.toml')):
+            test_cmd = 'cargo test'
+    elif ext == '.py':
+        if project_root and os.path.exists(os.path.join(project_root, 'pytest.ini')):
+            test_cmd = 'pytest'
+        elif project_root and os.path.exists(os.path.join(project_root, 'setup.py')):
+            test_cmd = 'python -m pytest'
+    elif ext in ('.js', '.ts', '.tsx', '.jsx') and project_root:
+        if os.path.exists(os.path.join(project_root, 'package.json')):
+            test_cmd = 'npm test'
+    elif ext == '.go' and project_root:
+        test_cmd = 'go test ./...'
+
+    if test_files or test_cmd:
+        msg = "🧪 TEST REMINDER: Code modified since last test run."
+        if test_cmd:
+            msg += f"\n   Run: {test_cmd}"
+        if test_files:
+            msg += f"\n   Related tests: {', '.join(os.path.basename(t) for t in test_files[:3])}"
+        return msg
+
+    return None
+
+
 def main():
     try:
         input_data = json.load(sys.stdin)
@@ -190,11 +320,20 @@ def main():
     if '.claude' in file_path and 'hooks' in file_path:
         sys.exit(0)
 
+    # Find project root for linter and test detection
+    project_root = find_project_root(file_path, [
+        'Cargo.toml', 'package.json', 'go.mod', 'setup.py',
+        'pyproject.toml', '.git'
+    ])
+
     # Check for stubs
     stub_findings = check_for_stubs(file_path)
 
     # Run linter
     linter_errors = run_linter(file_path)
+
+    # Check for test reminder
+    test_reminder = get_test_reminder(file_path, project_root)
 
     # Build output
     messages = []
@@ -214,6 +353,9 @@ Fix these NOW - replace with real implementation.""")
             error_list += f"\n  ... and more"
         messages.append(f"""🔍 LINTER ISSUES:
 {error_list}""")
+
+    if test_reminder:
+        messages.append(test_reminder)
 
     if messages:
         output = {

@@ -30,3 +30,13 @@ pub struct Session {
     pub active_issue_id: Option<i64>,
     pub handoff_notes: Option<String>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Milestone {
+    pub id: i64,
+    pub name: String,
+    pub description: Option<String>,
+    pub status: String,
+    pub created_at: DateTime<Utc>,
+    pub closed_at: Option<DateTime<Utc>>,
+}

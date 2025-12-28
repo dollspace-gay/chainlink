@@ -38,6 +38,9 @@ enum Commands {
         /// Priority (low, medium, high, critical)
         #[arg(short, long, default_value = "medium")]
         priority: String,
+        /// Template (bug, feature, refactor, research)
+        #[arg(short, long)]
+        template: Option<String>,
     },
 
     /// Create a subissue under a parent issue
@@ -65,6 +68,12 @@ enum Commands {
         /// Filter by priority
         #[arg(short, long)]
         priority: Option<String>,
+    },
+
+    /// Search issues by text
+    Search {
+        /// Search query
+        query: String,
     },
 
     /// Show issue details
@@ -155,6 +164,28 @@ enum Commands {
     /// List issues ready to work on (no open blockers)
     Ready,
 
+    /// Link two related issues
+    Relate {
+        /// First issue ID
+        id: i64,
+        /// Second issue ID
+        related: i64,
+    },
+
+    /// Remove a relation between issues
+    Unrelate {
+        /// First issue ID
+        id: i64,
+        /// Second issue ID
+        related: i64,
+    },
+
+    /// List related issues
+    Related {
+        /// Issue ID
+        id: i64,
+    },
+
     /// Suggest the next issue to work on
     Next,
 
@@ -177,6 +208,36 @@ enum Commands {
     /// Show current timer status
     Timer,
 
+    /// Mark tests as run (resets test reminder)
+    Tested,
+
+    /// Export issues to file
+    Export {
+        /// Output file path
+        output: String,
+        /// Format (json, markdown)
+        #[arg(short, long, default_value = "json")]
+        format: String,
+    },
+
+    /// Import issues from JSON file
+    Import {
+        /// Input file path
+        input: String,
+    },
+
+    /// Archive management
+    Archive {
+        #[command(subcommand)]
+        action: ArchiveCommands,
+    },
+
+    /// Milestone management
+    Milestone {
+        #[command(subcommand)]
+        action: MilestoneCommands,
+    },
+
     /// Session management
     Session {
         #[command(subcommand)]
@@ -187,6 +248,74 @@ enum Commands {
     Daemon {
         #[command(subcommand)]
         action: DaemonCommands,
+    },
+}
+
+#[derive(Subcommand)]
+enum ArchiveCommands {
+    /// Archive a closed issue
+    Add {
+        /// Issue ID
+        id: i64,
+    },
+    /// Unarchive an issue (restore to closed)
+    Remove {
+        /// Issue ID
+        id: i64,
+    },
+    /// List archived issues
+    List,
+    /// Archive all issues closed more than N days ago
+    Older {
+        /// Days threshold
+        days: i64,
+    },
+}
+
+#[derive(Subcommand)]
+enum MilestoneCommands {
+    /// Create a new milestone
+    Create {
+        /// Milestone name
+        name: String,
+        /// Description
+        #[arg(short, long)]
+        description: Option<String>,
+    },
+    /// List milestones
+    List {
+        /// Filter by status (open, closed, all)
+        #[arg(short, long, default_value = "open")]
+        status: String,
+    },
+    /// Show milestone details
+    Show {
+        /// Milestone ID
+        id: i64,
+    },
+    /// Add issues to a milestone
+    Add {
+        /// Milestone ID
+        id: i64,
+        /// Issue IDs to add
+        issues: Vec<i64>,
+    },
+    /// Remove an issue from a milestone
+    Remove {
+        /// Milestone ID
+        id: i64,
+        /// Issue ID to remove
+        issue: i64,
+    },
+    /// Close a milestone
+    Close {
+        /// Milestone ID
+        id: i64,
+    },
+    /// Delete a milestone
+    Delete {
+        /// Milestone ID
+        id: i64,
     },
 }
 
@@ -259,9 +388,10 @@ fn main() -> Result<()> {
             title,
             description,
             priority,
+            template,
         } => {
             let db = get_db()?;
-            commands::create::run(&db, &title, description.as_deref(), &priority)
+            commands::create::run(&db, &title, description.as_deref(), &priority, template.as_deref())
         }
 
         Commands::Subissue {
@@ -281,6 +411,11 @@ fn main() -> Result<()> {
         } => {
             let db = get_db()?;
             commands::list::run(&db, Some(&status), label.as_deref(), priority.as_deref())
+        }
+
+        Commands::Search { query } => {
+            let db = get_db()?;
+            commands::search::run(&db, &query)
         }
 
         Commands::Show { id } => {
@@ -354,6 +489,21 @@ fn main() -> Result<()> {
             commands::deps::list_ready(&db)
         }
 
+        Commands::Relate { id, related } => {
+            let db = get_db()?;
+            commands::relate::add(&db, id, related)
+        }
+
+        Commands::Unrelate { id, related } => {
+            let db = get_db()?;
+            commands::relate::remove(&db, id, related)
+        }
+
+        Commands::Related { id } => {
+            let db = get_db()?;
+            commands::relate::list(&db, id)
+        }
+
         Commands::Next => {
             let db = get_db()?;
             commands::next::run(&db)
@@ -377,6 +527,66 @@ fn main() -> Result<()> {
         Commands::Timer => {
             let db = get_db()?;
             commands::timer::status(&db)
+        }
+
+        Commands::Tested => {
+            let chainlink_dir = find_chainlink_dir()?;
+            commands::tested::run(&chainlink_dir)
+        }
+
+        Commands::Export { output, format } => {
+            let db = get_db()?;
+            let path = std::path::Path::new(&output);
+            match format.as_str() {
+                "json" => commands::export::run_json(&db, path),
+                "markdown" | "md" => commands::export::run_markdown(&db, path),
+                _ => {
+                    bail!("Unknown format '{}'. Use 'json' or 'markdown'", format);
+                }
+            }
+        }
+
+        Commands::Import { input } => {
+            let db = get_db()?;
+            let path = std::path::Path::new(&input);
+            commands::import::run_json(&db, path)
+        }
+
+        Commands::Archive { action } => {
+            let db = get_db()?;
+            match action {
+                ArchiveCommands::Add { id } => commands::archive::archive(&db, id),
+                ArchiveCommands::Remove { id } => commands::archive::unarchive(&db, id),
+                ArchiveCommands::List => commands::archive::list(&db),
+                ArchiveCommands::Older { days } => commands::archive::archive_older(&db, days),
+            }
+        }
+
+        Commands::Milestone { action } => {
+            let db = get_db()?;
+            match action {
+                MilestoneCommands::Create { name, description } => {
+                    commands::milestone::create(&db, &name, description.as_deref())
+                }
+                MilestoneCommands::List { status } => {
+                    commands::milestone::list(&db, Some(&status))
+                }
+                MilestoneCommands::Show { id } => {
+                    commands::milestone::show(&db, id)
+                }
+                MilestoneCommands::Add { id, issues } => {
+                    commands::milestone::add(&db, id, &issues)
+                }
+                MilestoneCommands::Remove { id, issue } => {
+                    commands::milestone::remove(&db, id, issue)
+                }
+                MilestoneCommands::Close { id } => {
+                    commands::milestone::close(&db, id)
+                }
+                MilestoneCommands::Delete { id } => {
+                    commands::milestone::delete(&db, id)
+                }
+            }
         }
 
         Commands::Session { action } => {
