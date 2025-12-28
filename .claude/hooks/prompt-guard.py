@@ -89,12 +89,103 @@ LANGUAGE_PRACTICES = {
 - Proper error handling with try/catch
 - Validate all external data at boundaries""",
 
+    'TypeScript/React': """
+- Use strict mode, avoid `any` type
+- Define proper interfaces for props and state
+- Use functional components with hooks
+- Memoize expensive computations (useMemo, useCallback)
+- Validate props at component boundaries""",
+
+    'JavaScript/React': """
+- Use `const`/`let`, never `var`
+- Use functional components with hooks
+- Proper error boundaries for component errors
+- Memoize expensive computations (useMemo, useCallback)
+- Validate props with PropTypes or runtime checks""",
+
     'Go': """
 - Always check returned errors
 - Use `context.Context` for cancellation
 - Prefer composition over inheritance
 - Use `defer` for cleanup
 - Validate input, especially from external sources""",
+
+    'Java': """
+- Use try-with-resources for AutoCloseable objects
+- Prefer Optional over null returns
+- Use PreparedStatement for SQL (never string concat)
+- Validate all input parameters
+- Use final for immutable references""",
+
+    'C': """
+- Always check return values (especially malloc, fopen)
+- Free allocated memory, avoid leaks
+- Use bounds checking for arrays/buffers
+- Validate input sizes before operations
+- Use static analysis tools (clang-tidy, cppcheck)""",
+
+    'C++': """
+- Use RAII and smart pointers (unique_ptr, shared_ptr)
+- Prefer references over raw pointers
+- Use const correctness throughout
+- Avoid manual memory management where possible
+- Use static analysis (clang-tidy, cppcheck)""",
+
+    'C#': """
+- Use `using` statements for IDisposable
+- Prefer async/await for I/O operations
+- Use parameterized queries (SqlParameter)
+- Validate input with data annotations
+- Use nullable reference types""",
+
+    'Ruby': """
+- Use blocks for resource cleanup
+- Raise specific exceptions, not generic RuntimeError
+- Use parameterized queries (ActiveRecord placeholders)
+- Validate input with strong parameters
+- Prefer symbols over strings for keys""",
+
+    'PHP': """
+- Use prepared statements (PDO with placeholders)
+- Enable strict_types declaration
+- Use type declarations for parameters/returns
+- Validate and sanitize all user input
+- Use try/catch for error handling""",
+
+    'Swift': """
+- Use guard for early returns
+- Prefer let over var for immutability
+- Use optionals properly (no force unwrap !)
+- Use Result type for error handling
+- Validate input at API boundaries""",
+
+    'Kotlin': """
+- Use val over var for immutability
+- Leverage null safety (avoid !!)
+- Use sealed classes for exhaustive when
+- Use coroutines for async operations
+- Validate input with require/check""",
+
+    'Scala': """
+- Use immutable collections by default
+- Prefer pattern matching over type checks
+- Use Option instead of null
+- Use Either/Try for error handling
+- Validate input at boundaries""",
+
+    'Zig': """
+- Handle all error unions explicitly
+- Use defer for cleanup
+- Prefer slices over pointers
+- Use comptime for compile-time validation
+- Validate input sizes before operations""",
+
+    'Odin': """
+- Check error return values
+- Use defer for cleanup
+- Prefer slices over raw pointers
+- Use explicit memory allocators
+- Validate array bounds before access""",
 }
 
 

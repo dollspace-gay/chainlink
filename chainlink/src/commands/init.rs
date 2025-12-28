@@ -11,7 +11,7 @@ const PROMPT_GUARD_PY: &str = include_str!("../../../.claude/hooks/prompt-guard.
 const POST_EDIT_CHECK_PY: &str = include_str!("../../../.claude/hooks/post-edit-check.py");
 const SESSION_START_PY: &str = include_str!("../../../.claude/hooks/session-start.py");
 
-pub fn run(path: &Path) -> Result<()> {
+pub fn run(path: &Path, force: bool) -> Result<()> {
     let chainlink_dir = path.join(".chainlink");
     let claude_dir = path.join(".claude");
     let hooks_dir = claude_dir.join("hooks");
@@ -20,8 +20,9 @@ pub fn run(path: &Path) -> Result<()> {
     let chainlink_exists = chainlink_dir.exists();
     let claude_exists = claude_dir.exists();
 
-    if chainlink_exists && claude_exists {
+    if chainlink_exists && claude_exists && !force {
         println!("Already initialized at {}", path.display());
+        println!("Use --force to update hooks to latest version.");
         return Ok(());
     }
 
@@ -35,8 +36,8 @@ pub fn run(path: &Path) -> Result<()> {
         println!("Created {}", chainlink_dir.display());
     }
 
-    // Create .claude directory and hooks
-    if !claude_exists {
+    // Create .claude directory and hooks (or update if force)
+    if !claude_exists || force {
         fs::create_dir_all(&hooks_dir)
             .context("Failed to create .claude/hooks directory")?;
 
@@ -54,7 +55,11 @@ pub fn run(path: &Path) -> Result<()> {
         fs::write(hooks_dir.join("session-start.py"), SESSION_START_PY)
             .context("Failed to write session-start.py")?;
 
-        println!("Created {} with Claude Code hooks", claude_dir.display());
+        if force && claude_exists {
+            println!("Updated {} with latest hooks", claude_dir.display());
+        } else {
+            println!("Created {} with Claude Code hooks", claude_dir.display());
+        }
     }
 
     println!("Chainlink initialized successfully!");

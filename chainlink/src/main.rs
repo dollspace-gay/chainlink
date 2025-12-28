@@ -22,7 +22,11 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     /// Initialize chainlink in the current directory
-    Init,
+    Init {
+        /// Force update hooks even if already initialized
+        #[arg(short, long)]
+        force: bool,
+    },
 
     /// Create a new issue
     Create {
@@ -246,9 +250,9 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Init => {
+        Commands::Init { force } => {
             let cwd = env::current_dir()?;
-            commands::init::run(&cwd)
+            commands::init::run(&cwd, force)
         }
 
         Commands::Create {
