@@ -2,7 +2,7 @@
   "name": "chainlink-issue-tracker",
   "displayName": "Chainlink Issue Tracker",
   "description": "A simple, lean issue tracker for AI-assisted development",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "publisher": "Dollspace-gay",
   "icon": "images/icon.png",
   "engines": {
