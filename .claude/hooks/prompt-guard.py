@@ -7,6 +7,7 @@ Injects best practice reminders on every prompt submission.
 import json
 import sys
 import os
+from datetime import datetime
 
 # Detect language from common file extensions in the working directory
 def detect_languages():
@@ -108,11 +109,27 @@ def build_reminder(languages):
     """Build the full reminder context."""
     lang_section = get_language_section(languages)
     lang_list = ", ".join(languages) if languages else "this project"
+    current_year = datetime.now().year
 
     reminder = f"""<chainlink-behavioral-guard>
 ## Code Quality Requirements
 
 You are working on a {lang_list} project. Follow these requirements strictly:
+
+### Pre-Coding Grounding (PREVENT HALLUCINATIONS)
+Before writing code that uses external libraries, APIs, or unfamiliar patterns:
+1. **VERIFY IT EXISTS**: Use WebSearch to confirm the crate/package/module exists and check its actual API
+2. **CHECK THE DOCS**: Fetch documentation to see real function signatures, not imagined ones
+3. **CONFIRM SYNTAX**: If unsure about language features or library usage, search first
+4. **USE LATEST VERSIONS**: Always check for and use the latest stable version of dependencies (security + features)
+5. **NO GUESSING**: If you can't verify it, tell the user you need to research it
+
+Examples of when to search:
+- Using a crate/package you haven't used recently → search "[package] [language] docs {current_year}"
+- Uncertain about function parameters → search for actual API reference
+- New language feature or syntax → verify it exists in the version being used
+- System calls or platform-specific code → confirm the correct API
+- Adding a dependency → search "[package] latest version {current_year}" to get current release
 
 ### General Requirements
 1. **NO STUBS**: Implement complete, working code. Never write placeholder functions or TODO comments as implementation.
@@ -120,6 +137,7 @@ You are working on a {lang_list} project. Follow these requirements strictly:
 3. **FULL FEATURES**: Implement the complete feature as requested. Don't stop partway or suggest "you could add X later."
 4. **ERROR HANDLING**: Proper error handling everywhere. No panics/crashes on bad input.
 5. **SECURITY**: Validate input, use parameterized queries, no command injection, no hardcoded secrets.
+6. **READ BEFORE WRITE**: Always read a file before editing it. Never guess at contents.
 {lang_section}
 
 ### Large File Management (500+ lines)
