@@ -37,7 +37,9 @@ pub fn run(db: &Database) -> Result<()> {
 
     if ready.is_empty() {
         println!("No issues ready to work on.");
-        println!("Use 'chainlink list' to see all issues or 'chainlink blocked' to see blocked issues.");
+        println!(
+            "Use 'chainlink list' to see all issues or 'chainlink blocked' to see blocked issues."
+        );
         return Ok(());
     }
 
@@ -108,7 +110,10 @@ pub fn run(db: &Database) -> Result<()> {
                 Some((c, t)) => format!(" ({}/{})", c, t),
                 None => String::new(),
             };
-            println!("  #{} [{}] {}{}", issue.id, issue.priority, issue.title, progress_str);
+            println!(
+                "  #{} [{}] {}{}",
+                issue.id, issue.priority, issue.title, progress_str
+            );
         }
     }
 

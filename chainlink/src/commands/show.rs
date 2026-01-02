@@ -79,7 +79,10 @@ pub fn run(db: &Database, id: i64) -> Result<()> {
     if !subissues.is_empty() {
         println!("\nSubissues:");
         for sub in subissues {
-            println!("  #{} [{}] {} - {}", sub.id, sub.status, sub.priority, sub.title);
+            println!(
+                "  #{} [{}] {} - {}",
+                sub.id, sub.status, sub.priority, sub.title
+            );
         }
     }
 
@@ -89,7 +92,10 @@ pub fn run(db: &Database, id: i64) -> Result<()> {
         println!("\nRelated:");
         for rel in related {
             let status_marker = if rel.status == "closed" { "✓" } else { " " };
-            println!("  #{} [{}] {} - {}", rel.id, status_marker, rel.priority, rel.title);
+            println!(
+                "  #{} [{}] {} - {}",
+                rel.id, status_marker, rel.priority, rel.title
+            );
         }
     }
 

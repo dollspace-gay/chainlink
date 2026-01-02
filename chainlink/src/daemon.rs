@@ -173,7 +173,10 @@ pub fn run_daemon(chainlink_dir: &Path) -> Result<()> {
                     if let Err(e) = fs::write(&session_file, json) {
                         eprintln!("Failed to write session file: {}", e);
                     } else {
-                        println!("Session flushed at {}", chrono::Utc::now().format("%H:%M:%S"));
+                        println!(
+                            "Session flushed at {}",
+                            chrono::Utc::now().format("%H:%M:%S")
+                        );
                     }
                 }
             }

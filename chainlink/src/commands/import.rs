@@ -3,17 +3,19 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
-use crate::db::Database;
 use super::export::{ExportData, ExportedIssue};
+use crate::db::Database;
 
 pub fn run_json(db: &Database, input_path: &Path) -> Result<()> {
-    let content = fs::read_to_string(input_path)
-        .context("Failed to read import file")?;
+    let content = fs::read_to_string(input_path).context("Failed to read import file")?;
 
-    let data: ExportData = serde_json::from_str(&content)
-        .context("Failed to parse JSON")?;
+    let data: ExportData = serde_json::from_str(&content).context("Failed to parse JSON")?;
 
-    println!("Importing {} issues from {}", data.issues.len(), input_path.display());
+    println!(
+        "Importing {} issues from {}",
+        data.issues.len(),
+        input_path.display()
+    );
 
     // Map old IDs to new IDs for parent relationships
     let mut id_map: HashMap<i64, i64> = HashMap::new();
@@ -49,11 +51,7 @@ fn import_issue(db: &Database, issue: &ExportedIssue, parent_id: Option<i64>) ->
             &issue.priority,
         )?
     } else {
-        db.create_issue(
-            &issue.title,
-            issue.description.as_deref(),
-            &issue.priority,
-        )?
+        db.create_issue(&issue.title, issue.description.as_deref(), &issue.priority)?
     };
 
     // Add labels

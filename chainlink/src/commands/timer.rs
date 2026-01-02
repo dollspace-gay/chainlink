@@ -42,7 +42,9 @@ pub fn stop(db: &Database) -> Result<()> {
     db.stop_timer(issue_id)?;
 
     let issue = db.get_issue(issue_id)?;
-    let title = issue.map(|i| i.title).unwrap_or_else(|| "(deleted)".to_string());
+    let title = issue
+        .map(|i| i.title)
+        .unwrap_or_else(|| "(deleted)".to_string());
 
     let hours = duration.num_hours();
     let minutes = duration.num_minutes() % 60;
@@ -55,7 +57,10 @@ pub fn stop(db: &Database) -> Result<()> {
     let total = db.get_total_time(issue_id)?;
     let total_hours = total / 3600;
     let total_minutes = (total % 3600) / 60;
-    println!("Total time on this issue: {}h {}m", total_hours, total_minutes);
+    println!(
+        "Total time on this issue: {}h {}m",
+        total_hours, total_minutes
+    );
 
     Ok(())
 }
@@ -71,7 +76,9 @@ pub fn status(db: &Database) -> Result<()> {
             let seconds = duration.num_seconds() % 60;
 
             let issue = db.get_issue(issue_id)?;
-            let title = issue.map(|i| i.title).unwrap_or_else(|| "(deleted)".to_string());
+            let title = issue
+                .map(|i| i.title)
+                .unwrap_or_else(|| "(deleted)".to_string());
 
             println!("Timer running: #{} {}", issue_id, title);
             println!("Elapsed: {}h {}m {}s", hours, minutes, seconds);

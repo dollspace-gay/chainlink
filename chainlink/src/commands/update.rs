@@ -16,7 +16,10 @@ pub fn run(
 
     if let Some(p) = priority {
         if !validate_priority(p) {
-            bail!("Invalid priority '{}'. Must be one of: low, medium, high, critical", p);
+            bail!(
+                "Invalid priority '{}'. Must be one of: low, medium, high, critical",
+                p
+            );
         }
     }
 

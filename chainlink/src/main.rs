@@ -391,7 +391,13 @@ fn main() -> Result<()> {
             template,
         } => {
             let db = get_db()?;
-            commands::create::run(&db, &title, description.as_deref(), &priority, template.as_deref())
+            commands::create::run(
+                &db,
+                &title,
+                description.as_deref(),
+                &priority,
+                template.as_deref(),
+            )
         }
 
         Commands::Subissue {
@@ -568,24 +574,14 @@ fn main() -> Result<()> {
                 MilestoneCommands::Create { name, description } => {
                     commands::milestone::create(&db, &name, description.as_deref())
                 }
-                MilestoneCommands::List { status } => {
-                    commands::milestone::list(&db, Some(&status))
-                }
-                MilestoneCommands::Show { id } => {
-                    commands::milestone::show(&db, id)
-                }
-                MilestoneCommands::Add { id, issues } => {
-                    commands::milestone::add(&db, id, &issues)
-                }
+                MilestoneCommands::List { status } => commands::milestone::list(&db, Some(&status)),
+                MilestoneCommands::Show { id } => commands::milestone::show(&db, id),
+                MilestoneCommands::Add { id, issues } => commands::milestone::add(&db, id, &issues),
                 MilestoneCommands::Remove { id, issue } => {
                     commands::milestone::remove(&db, id, issue)
                 }
-                MilestoneCommands::Close { id } => {
-                    commands::milestone::close(&db, id)
-                }
-                MilestoneCommands::Delete { id } => {
-                    commands::milestone::delete(&db, id)
-                }
+                MilestoneCommands::Close { id } => commands::milestone::close(&db, id),
+                MilestoneCommands::Delete { id } => commands::milestone::delete(&db, id),
             }
         }
 
@@ -599,24 +595,20 @@ fn main() -> Result<()> {
             }
         }
 
-        Commands::Daemon { action } => {
-            match action {
-                DaemonCommands::Start => {
-                    let chainlink_dir = find_chainlink_dir()?;
-                    daemon::start(&chainlink_dir)
-                }
-                DaemonCommands::Stop => {
-                    let chainlink_dir = find_chainlink_dir()?;
-                    daemon::stop(&chainlink_dir)
-                }
-                DaemonCommands::Status => {
-                    let chainlink_dir = find_chainlink_dir()?;
-                    daemon::status(&chainlink_dir)
-                }
-                DaemonCommands::Run { dir } => {
-                    daemon::run_daemon(&dir)
-                }
+        Commands::Daemon { action } => match action {
+            DaemonCommands::Start => {
+                let chainlink_dir = find_chainlink_dir()?;
+                daemon::start(&chainlink_dir)
             }
-        }
+            DaemonCommands::Stop => {
+                let chainlink_dir = find_chainlink_dir()?;
+                daemon::stop(&chainlink_dir)
+            }
+            DaemonCommands::Status => {
+                let chainlink_dir = find_chainlink_dir()?;
+                daemon::status(&chainlink_dir)
+            }
+            DaemonCommands::Run { dir } => daemon::run_daemon(&dir),
+        },
     }
 }

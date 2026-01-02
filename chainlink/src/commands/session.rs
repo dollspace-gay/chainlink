@@ -6,7 +6,8 @@ use crate::db::Database;
 pub fn start(db: &Database) -> Result<()> {
     // Check if there's already an active session
     if let Some(current) = db.get_current_session()? {
-        println!("Session #{} is already active (started {})",
+        println!(
+            "Session #{} is already active (started {})",
             current.id,
             current.started_at.format("%Y-%m-%d %H:%M")
         );
@@ -60,7 +61,11 @@ pub fn status(db: &Database) -> Result<()> {
     let duration = Utc::now() - session.started_at;
     let minutes = duration.num_minutes();
 
-    println!("Session #{} (started {})", session.id, session.started_at.format("%Y-%m-%d %H:%M"));
+    println!(
+        "Session #{} (started {})",
+        session.id,
+        session.started_at.format("%Y-%m-%d %H:%M")
+    );
 
     if let Some(issue_id) = session.active_issue_id {
         if let Some(issue) = db.get_issue(issue_id)? {

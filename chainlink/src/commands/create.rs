@@ -69,7 +69,11 @@ pub fn run(
         })?;
 
         // Template priority is default, user can override
-        let priority = if priority != "medium" { priority } else { tmpl.priority };
+        let priority = if priority != "medium" {
+            priority
+        } else {
+            tmpl.priority
+        };
 
         // Combine template description prefix with user description
         let desc = match (tmpl.description_prefix, description) {
@@ -80,7 +84,11 @@ pub fn run(
 
         (priority.to_string(), desc, Some(tmpl.label))
     } else {
-        (priority.to_string(), description.map(|s| s.to_string()), None)
+        (
+            priority.to_string(),
+            description.map(|s| s.to_string()),
+            None,
+        )
     };
 
     if !validate_priority(&final_priority) {
@@ -105,7 +113,13 @@ pub fn run(
     Ok(())
 }
 
-pub fn run_subissue(db: &Database, parent_id: i64, title: &str, description: Option<&str>, priority: &str) -> Result<()> {
+pub fn run_subissue(
+    db: &Database,
+    parent_id: i64,
+    title: &str,
+    description: Option<&str>,
+    priority: &str,
+) -> Result<()> {
     if !validate_priority(priority) {
         bail!(
             "Invalid priority '{}'. Must be one of: {}",

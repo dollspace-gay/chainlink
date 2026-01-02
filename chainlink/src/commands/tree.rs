@@ -32,7 +32,10 @@ fn print_tree_recursive(db: &Database, parent_id: i64, indent: usize) -> Result<
 pub fn run(db: &Database, status_filter: Option<&str>) -> Result<()> {
     // Get all top-level issues (no parent)
     let all_issues = db.list_issues(status_filter, None, None)?;
-    let top_level: Vec<_> = all_issues.into_iter().filter(|i| i.parent_id.is_none()).collect();
+    let top_level: Vec<_> = all_issues
+        .into_iter()
+        .filter(|i| i.parent_id.is_none())
+        .collect();
 
     if top_level.is_empty() {
         println!("No issues found.");

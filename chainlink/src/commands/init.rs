@@ -77,8 +77,7 @@ pub fn run(path: &Path, force: bool) -> Result<()> {
 
     // Create .chainlink directory and database
     if !chainlink_exists {
-        fs::create_dir_all(&chainlink_dir)
-            .context("Failed to create .chainlink directory")?;
+        fs::create_dir_all(&chainlink_dir).context("Failed to create .chainlink directory")?;
 
         let db_path = chainlink_dir.join("issues.db");
         Database::open(&db_path)?;
@@ -88,8 +87,7 @@ pub fn run(path: &Path, force: bool) -> Result<()> {
     // Create or update rules directory
     let rules_exist = rules_dir.exists();
     if !rules_exist || force {
-        fs::create_dir_all(&rules_dir)
-            .context("Failed to create .chainlink/rules directory")?;
+        fs::create_dir_all(&rules_dir).context("Failed to create .chainlink/rules directory")?;
 
         for (filename, content) in RULE_FILES {
             fs::write(rules_dir.join(filename), content)
@@ -105,8 +103,7 @@ pub fn run(path: &Path, force: bool) -> Result<()> {
 
     // Create .claude directory and hooks (or update if force)
     if !claude_exists || force {
-        fs::create_dir_all(&hooks_dir)
-            .context("Failed to create .claude/hooks directory")?;
+        fs::create_dir_all(&hooks_dir).context("Failed to create .claude/hooks directory")?;
 
         // Write settings.json
         fs::write(claude_dir.join("settings.json"), SETTINGS_JSON)

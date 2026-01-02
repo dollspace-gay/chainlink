@@ -14,7 +14,10 @@ pub fn run(db: &Database, query: &str) -> Result<()> {
 
     for issue in results {
         let status_marker = if issue.status == "closed" { "✓" } else { " " };
-        let parent_str = issue.parent_id.map(|p| format!(" (sub of #{})", p)).unwrap_or_default();
+        let parent_str = issue
+            .parent_id
+            .map(|p| format!(" (sub of #{})", p))
+            .unwrap_or_default();
 
         println!(
             "#{:<4} [{}] {:8} {}{} {}",
@@ -23,7 +26,11 @@ pub fn run(db: &Database, query: &str) -> Result<()> {
             issue.priority,
             issue.title,
             parent_str,
-            if issue.status == "closed" { "(closed)" } else { "" }
+            if issue.status == "closed" {
+                "(closed)"
+            } else {
+                ""
+            }
         );
 
         // Show snippet of description if it contains the query

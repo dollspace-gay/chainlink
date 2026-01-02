@@ -14,7 +14,10 @@ pub fn add(db: &Database, issue_id: i64, related_id: i64) -> Result<()> {
     if db.add_relation(issue_id, related_id)? {
         println!("Linked #{} ↔ #{}", issue_id, related_id);
     } else {
-        println!("Issues #{} and #{} are already related", issue_id, related_id);
+        println!(
+            "Issues #{} and #{} are already related",
+            issue_id, related_id
+        );
     }
 
     Ok(())
@@ -24,7 +27,10 @@ pub fn remove(db: &Database, issue_id: i64, related_id: i64) -> Result<()> {
     if db.remove_relation(issue_id, related_id)? {
         println!("Unlinked #{} ↔ #{}", issue_id, related_id);
     } else {
-        println!("No relation found between #{} and #{}", issue_id, related_id);
+        println!(
+            "No relation found between #{} and #{}",
+            issue_id, related_id
+        );
     }
 
     Ok(())
@@ -46,7 +52,10 @@ pub fn list(db: &Database, issue_id: i64) -> Result<()> {
     println!("Related to #{}:", issue_id);
     for r in related {
         let status_marker = if r.status == "closed" { "✓" } else { " " };
-        println!("  #{:<4} [{}] {:8} {}", r.id, status_marker, r.priority, r.title);
+        println!(
+            "  #{:<4} [{}] {:8} {}",
+            r.id, status_marker, r.priority, r.title
+        );
     }
 
     Ok(())

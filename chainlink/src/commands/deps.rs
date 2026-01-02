@@ -25,7 +25,10 @@ pub fn block(db: &Database, issue_id: i64, blocker_id: i64) -> Result<()> {
 
 pub fn unblock(db: &Database, issue_id: i64, blocker_id: i64) -> Result<()> {
     if db.remove_dependency(issue_id, blocker_id)? {
-        println!("Removed: #{} no longer blocked by #{}", issue_id, blocker_id);
+        println!(
+            "Removed: #{} no longer blocked by #{}",
+            issue_id, blocker_id
+        );
     } else {
         println!("No such dependency found");
     }
@@ -65,10 +68,7 @@ pub fn list_ready(db: &Database) -> Result<()> {
 
     println!("Ready issues (no blockers):");
     for issue in issues {
-        println!(
-            "  #{:<4} {:8} {}",
-            issue.id, issue.priority, issue.title
-        );
+        println!("  #{:<4} {:8} {}", issue.id, issue.priority, issue.title);
     }
 
     Ok(())

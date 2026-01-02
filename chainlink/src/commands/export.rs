@@ -76,7 +76,11 @@ pub fn run_json(db: &Database, output_path: &Path) -> Result<()> {
     let json = serde_json::to_string_pretty(&data)?;
     fs::write(output_path, json).context("Failed to write export file")?;
 
-    println!("Exported {} issues to {}", data.issues.len(), output_path.display());
+    println!(
+        "Exported {} issues to {}",
+        data.issues.len(),
+        output_path.display()
+    );
     Ok(())
 }
 
@@ -85,7 +89,10 @@ pub fn run_markdown(db: &Database, output_path: &Path) -> Result<()> {
     let mut md = String::new();
 
     md.push_str("# Chainlink Issues Export\n\n");
-    md.push_str(&format!("Exported: {}\n\n", chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC")));
+    md.push_str(&format!(
+        "Exported: {}\n\n",
+        chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC")
+    ));
 
     // Group by status
     let open: Vec<_> = issues.iter().filter(|i| i.status == "open").collect();
@@ -106,14 +113,25 @@ pub fn run_markdown(db: &Database, output_path: &Path) -> Result<()> {
     }
 
     fs::write(output_path, md).context("Failed to write export file")?;
-    println!("Exported {} issues to {}", issues.len(), output_path.display());
+    println!(
+        "Exported {} issues to {}",
+        issues.len(),
+        output_path.display()
+    );
     Ok(())
 }
 
 fn write_issue_md(md: &mut String, db: &Database, issue: &Issue) -> Result<()> {
-    let checkbox = if issue.status == "closed" { "[x]" } else { "[ ]" };
+    let checkbox = if issue.status == "closed" {
+        "[x]"
+    } else {
+        "[ ]"
+    };
 
-    md.push_str(&format!("### {} #{}: {}\n\n", checkbox, issue.id, issue.title));
+    md.push_str(&format!(
+        "### {} #{}: {}\n\n",
+        checkbox, issue.id, issue.title
+    ));
     md.push_str(&format!("- **Priority:** {}\n", issue.priority));
     md.push_str(&format!("- **Status:** {}\n", issue.status));
 
@@ -126,7 +144,10 @@ fn write_issue_md(md: &mut String, db: &Database, issue: &Issue) -> Result<()> {
         md.push_str(&format!("- **Labels:** {}\n", labels.join(", ")));
     }
 
-    md.push_str(&format!("- **Created:** {}\n", issue.created_at.format("%Y-%m-%d")));
+    md.push_str(&format!(
+        "- **Created:** {}\n",
+        issue.created_at.format("%Y-%m-%d")
+    ));
 
     if let Some(ref desc) = issue.description {
         if !desc.is_empty() {

@@ -10,7 +10,11 @@ pub fn archive(db: &Database, id: i64) -> Result<()> {
 
     let issue = issue.unwrap();
     if issue.status != "closed" {
-        bail!("Can only archive closed issues. Issue #{} is '{}'", id, issue.status);
+        bail!(
+            "Can only archive closed issues. Issue #{} is '{}'",
+            id,
+            issue.status
+        );
     }
 
     if db.archive_issue(id)? {
@@ -42,8 +46,14 @@ pub fn list(db: &Database) -> Result<()> {
 
     println!("Archived issues:\n");
     for issue in issues {
-        let parent_str = issue.parent_id.map(|p| format!(" (sub of #{})", p)).unwrap_or_default();
-        println!("#{:<4} {:8} {}{}", issue.id, issue.priority, issue.title, parent_str);
+        let parent_str = issue
+            .parent_id
+            .map(|p| format!(" (sub of #{})", p))
+            .unwrap_or_default();
+        println!(
+            "#{:<4} {:8} {}{}",
+            issue.id, issue.priority, issue.title, parent_str
+        );
     }
 
     Ok(())
@@ -52,9 +62,15 @@ pub fn list(db: &Database) -> Result<()> {
 pub fn archive_older(db: &Database, days: i64) -> Result<()> {
     let count = db.archive_older_than(days)?;
     if count > 0 {
-        println!("Archived {} issue(s) closed more than {} days ago", count, days);
+        println!(
+            "Archived {} issue(s) closed more than {} days ago",
+            count, days
+        );
     } else {
-        println!("No issues to archive (none closed more than {} days ago)", days);
+        println!(
+            "No issues to archive (none closed more than {} days ago)",
+            days
+        );
     }
 
     Ok(())

@@ -155,15 +155,32 @@ impl Database {
     }
 
     // Issue CRUD
-    pub fn create_issue(&self, title: &str, description: Option<&str>, priority: &str) -> Result<i64> {
+    pub fn create_issue(
+        &self,
+        title: &str,
+        description: Option<&str>,
+        priority: &str,
+    ) -> Result<i64> {
         self.create_issue_with_parent(title, description, priority, None)
     }
 
-    pub fn create_subissue(&self, parent_id: i64, title: &str, description: Option<&str>, priority: &str) -> Result<i64> {
+    pub fn create_subissue(
+        &self,
+        parent_id: i64,
+        title: &str,
+        description: Option<&str>,
+        priority: &str,
+    ) -> Result<i64> {
         self.create_issue_with_parent(title, description, priority, Some(parent_id))
     }
 
-    fn create_issue_with_parent(&self, title: &str, description: Option<&str>, priority: &str, parent_id: Option<i64>) -> Result<i64> {
+    fn create_issue_with_parent(
+        &self,
+        title: &str,
+        description: Option<&str>,
+        priority: &str,
+        parent_id: Option<i64>,
+    ) -> Result<i64> {
         let now = Utc::now().to_rfc3339();
         self.conn.execute(
             "INSERT INTO issues (title, description, priority, parent_id, status, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, 'open', ?5, ?5)",
@@ -261,7 +278,8 @@ impl Database {
         sql.push_str(" ORDER BY i.id DESC");
 
         let mut stmt = self.conn.prepare(&sql)?;
-        let params_refs: Vec<&dyn rusqlite::ToSql> = params_vec.iter().map(|p| p.as_ref()).collect();
+        let params_refs: Vec<&dyn rusqlite::ToSql> =
+            params_vec.iter().map(|p| p.as_ref()).collect();
 
         let issues = stmt
             .query_map(params_refs.as_slice(), |row| {
@@ -315,7 +333,8 @@ impl Database {
             params_vec.len()
         );
 
-        let params_refs: Vec<&dyn rusqlite::ToSql> = params_vec.iter().map(|p| p.as_ref()).collect();
+        let params_refs: Vec<&dyn rusqlite::ToSql> =
+            params_vec.iter().map(|p| p.as_ref()).collect();
         let rows = self.conn.execute(&sql, params_refs.as_slice())?;
         Ok(rows > 0)
     }
@@ -339,7 +358,9 @@ impl Database {
     }
 
     pub fn delete_issue(&self, id: i64) -> Result<bool> {
-        let rows = self.conn.execute("DELETE FROM issues WHERE id = ?1", [id])?;
+        let rows = self
+            .conn
+            .execute("DELETE FROM issues WHERE id = ?1", [id])?;
         Ok(rows > 0)
     }
 
@@ -854,7 +875,9 @@ impl Database {
     }
 
     pub fn delete_milestone(&self, id: i64) -> Result<bool> {
-        let rows = self.conn.execute("DELETE FROM milestones WHERE id = ?1", [id])?;
+        let rows = self
+            .conn
+            .execute("DELETE FROM milestones WHERE id = ?1", [id])?;
         Ok(rows > 0)
     }
 
