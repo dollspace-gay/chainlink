@@ -86,7 +86,7 @@ fn write_mcp_json_merged(mcp_path: &Path) -> Result<Vec<String>> {
     Ok(warnings)
 }
 
-pub fn run(path: &Path, force: bool) -> Result<()> {
+pub fn run(path: &Path, force: bool, db_only: bool) -> Result<()> {
     let chainlink_dir = path.join(".chainlink");
     let claude_dir = path.join(".claude");
     let hooks_dir = claude_dir.join("hooks");
@@ -110,6 +110,11 @@ pub fn run(path: &Path, force: bool) -> Result<()> {
         let db_path = chainlink_dir.join("issues.db");
         Database::open(&db_path)?;
         println!("Created {}", chainlink_dir.display());
+    }
+
+    // --db-only: stop after creating the database
+    if db_only {
+        return Ok(());
     }
 
     // Write hook config (create or update)
@@ -215,7 +220,7 @@ mod tests {
     #[test]
     fn test_run_fresh_init() {
         let dir = tempdir().unwrap();
-        let result = run(dir.path(), false);
+        let result = run(dir.path(), false, false);
         assert!(result.is_ok());
 
         // Verify directories created
@@ -231,7 +236,7 @@ mod tests {
     #[test]
     fn test_run_creates_hook_files() {
         let dir = tempdir().unwrap();
-        run(dir.path(), false).unwrap();
+        run(dir.path(), false, false).unwrap();
 
         // Verify hook files
         assert!(dir.path().join(".claude/settings.json").exists());
@@ -251,7 +256,7 @@ mod tests {
     #[test]
     fn test_run_creates_rule_files() {
         let dir = tempdir().unwrap();
-        run(dir.path(), false).unwrap();
+        run(dir.path(), false, false).unwrap();
 
         let rules_dir = dir.path().join(".chainlink/rules");
         assert!(rules_dir.join("global.md").exists());
@@ -270,10 +275,10 @@ mod tests {
         let dir = tempdir().unwrap();
 
         // First init
-        run(dir.path(), false).unwrap();
+        run(dir.path(), false, false).unwrap();
 
         // Second init without force - should succeed but not recreate
-        let result = run(dir.path(), false);
+        let result = run(dir.path(), false, false);
         assert!(result.is_ok());
     }
 
@@ -282,14 +287,14 @@ mod tests {
         let dir = tempdir().unwrap();
 
         // First init
-        run(dir.path(), false).unwrap();
+        run(dir.path(), false, false).unwrap();
 
         // Modify a hook file
         let hook_path = dir.path().join(".claude/hooks/prompt-guard.py");
         fs::write(&hook_path, "# modified").unwrap();
 
         // Force update
-        run(dir.path(), true).unwrap();
+        run(dir.path(), true, false).unwrap();
 
         // Verify file was restored
         let content = fs::read_to_string(&hook_path).unwrap();
@@ -311,7 +316,7 @@ mod tests {
     #[test]
     fn test_force_init_preserves_existing_mcp_servers() {
         let dir = tempdir().unwrap();
-        run(dir.path(), false).unwrap();
+        run(dir.path(), false, false).unwrap();
 
         // Add a custom MCP server entry alongside the embedded ones
         let mcp_path = dir.path().join(".mcp.json");
@@ -324,7 +329,7 @@ mod tests {
         fs::write(&mcp_path, serde_json::to_string_pretty(&content).unwrap()).unwrap();
 
         // Force update
-        run(dir.path(), true).unwrap();
+        run(dir.path(), true, false).unwrap();
 
         // Verify all embedded keys and the custom key are present
         let result: serde_json::Value =
@@ -351,7 +356,7 @@ mod tests {
     #[test]
     fn test_force_init_returns_warnings_for_overwritten_keys() {
         let dir = tempdir().unwrap();
-        run(dir.path(), false).unwrap();
+        run(dir.path(), false, false).unwrap();
 
         // The first init created .mcp.json with the embedded keys.
         // A second force init should warn about overwriting each one.
@@ -406,14 +411,14 @@ mod tests {
     #[test]
     fn test_force_init_fails_on_malformed_mcp_json() {
         let dir = tempdir().unwrap();
-        run(dir.path(), false).unwrap();
+        run(dir.path(), false, false).unwrap();
 
         // Write invalid JSON to .mcp.json
         let mcp_path = dir.path().join(".mcp.json");
         fs::write(&mcp_path, "not json {{{").unwrap();
 
         // Force init should fail, not silently overwrite
-        let result = run(dir.path(), true);
+        let result = run(dir.path(), true, false);
         assert!(result.is_err());
         let err = format!("{:#}", result.unwrap_err());
         assert!(
@@ -430,14 +435,14 @@ mod tests {
     #[test]
     fn test_force_init_fails_on_non_object_mcp_json() {
         let dir = tempdir().unwrap();
-        run(dir.path(), false).unwrap();
+        run(dir.path(), false, false).unwrap();
 
         // Write a JSON array to .mcp.json
         let mcp_path = dir.path().join(".mcp.json");
         fs::write(&mcp_path, "[1, 2, 3]").unwrap();
 
         // Force init should fail, not silently overwrite
-        let result = run(dir.path(), true);
+        let result = run(dir.path(), true, false);
         assert!(result.is_err());
         let err = format!("{:#}", result.unwrap_err());
         assert!(
@@ -454,14 +459,14 @@ mod tests {
     #[test]
     fn test_force_init_handles_empty_mcp_json_file() {
         let dir = tempdir().unwrap();
-        run(dir.path(), false).unwrap();
+        run(dir.path(), false, false).unwrap();
 
         // Write empty file
         let mcp_path = dir.path().join(".mcp.json");
         fs::write(&mcp_path, "").unwrap();
 
         // Should fail — empty file is not valid JSON
-        let result = run(dir.path(), true);
+        let result = run(dir.path(), true, false);
         assert!(result.is_err());
         let err = format!("{:#}", result.unwrap_err());
         assert!(
@@ -474,14 +479,14 @@ mod tests {
     #[test]
     fn test_force_init_fails_on_non_object_mcp_servers_value() {
         let dir = tempdir().unwrap();
-        run(dir.path(), false).unwrap();
+        run(dir.path(), false, false).unwrap();
 
         // Write valid JSON where mcpServers is a string instead of object
         let mcp_path = dir.path().join(".mcp.json");
         fs::write(&mcp_path, r#"{"mcpServers": "banana"}"#).unwrap();
 
         // Should fail, not silently replace
-        let result = run(dir.path(), true);
+        let result = run(dir.path(), true, false);
         assert!(result.is_err());
         let err = format!("{:#}", result.unwrap_err());
         assert!(
@@ -498,14 +503,14 @@ mod tests {
     #[test]
     fn test_init_merges_into_mcp_json_without_mcp_servers_key() {
         let dir = tempdir().unwrap();
-        run(dir.path(), false).unwrap();
+        run(dir.path(), false, false).unwrap();
 
         // Write a valid object with no mcpServers key
         let mcp_path = dir.path().join(".mcp.json");
         fs::write(&mcp_path, r#"{"someOtherKey": true}"#).unwrap();
 
         // Force init should add mcpServers, preserving the other key
-        run(dir.path(), true).unwrap();
+        run(dir.path(), true, false).unwrap();
 
         let content = fs::read_to_string(&mcp_path).unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&content).unwrap();
@@ -520,7 +525,7 @@ mod tests {
         // Create only .chainlink directory
         fs::create_dir_all(dir.path().join(".chainlink")).unwrap();
 
-        let result = run(dir.path(), false);
+        let result = run(dir.path(), false, false);
         assert!(result.is_ok());
 
         // .claude should now exist
@@ -534,7 +539,7 @@ mod tests {
         // Create only .claude directory
         fs::create_dir_all(dir.path().join(".claude")).unwrap();
 
-        let result = run(dir.path(), false);
+        let result = run(dir.path(), false, false);
         assert!(result.is_ok());
 
         // .chainlink should now exist
@@ -544,7 +549,7 @@ mod tests {
     #[test]
     fn test_run_database_usable() {
         let dir = tempdir().unwrap();
-        run(dir.path(), false).unwrap();
+        run(dir.path(), false, false).unwrap();
 
         // Open the created database and verify it works
         let db_path = dir.path().join(".chainlink/issues.db");
@@ -558,7 +563,7 @@ mod tests {
     #[test]
     fn test_run_rule_files_not_empty() {
         let dir = tempdir().unwrap();
-        run(dir.path(), false).unwrap();
+        run(dir.path(), false, false).unwrap();
 
         let rules_dir = dir.path().join(".chainlink/rules");
 
@@ -573,14 +578,14 @@ mod tests {
     #[test]
     fn test_run_force_updates_rules() {
         let dir = tempdir().unwrap();
-        run(dir.path(), false).unwrap();
+        run(dir.path(), false, false).unwrap();
 
         // Modify a rule file
         let rule_path = dir.path().join(".chainlink/rules/global.md");
         fs::write(&rule_path, "# modified rule").unwrap();
 
         // Force update
-        run(dir.path(), true).unwrap();
+        run(dir.path(), true, false).unwrap();
 
         // Verify file was restored
         let content = fs::read_to_string(&rule_path).unwrap();
@@ -593,7 +598,7 @@ mod tests {
 
         // Multiple force runs should all succeed
         for _ in 0..3 {
-            let result = run(dir.path(), true);
+            let result = run(dir.path(), true, false);
             assert!(result.is_ok());
         }
 
@@ -636,5 +641,43 @@ mod tests {
                 name
             );
         }
+    }
+
+    #[test]
+    fn test_run_db_only_creates_database_only() {
+        let dir = tempdir().unwrap();
+        let result = run(dir.path(), false, true);
+        assert!(result.is_ok());
+
+        // Database and .chainlink should exist
+        assert!(dir.path().join(".chainlink").exists());
+        assert!(dir.path().join(".chainlink/issues.db").exists());
+
+        // Nothing else should be created
+        assert!(!dir.path().join(".chainlink/rules").exists());
+        assert!(!dir.path().join(".chainlink/rules.local").exists());
+        assert!(!dir.path().join(".chainlink/hook-config.json").exists());
+        assert!(!dir.path().join(".claude").exists());
+        assert!(!dir.path().join(".mcp.json").exists());
+    }
+
+    #[test]
+    fn test_run_db_only_is_idempotent() {
+        let dir = tempdir().unwrap();
+        run(dir.path(), false, true).unwrap();
+        // Second call should succeed without error
+        let result = run(dir.path(), false, true);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_run_db_only_database_usable() {
+        let dir = tempdir().unwrap();
+        run(dir.path(), false, true).unwrap();
+
+        let db_path = dir.path().join(".chainlink/issues.db");
+        let db = Database::open(&db_path).unwrap();
+        let id = db.create_issue("Test issue", None, "medium").unwrap();
+        assert!(id > 0);
     }
 }

@@ -53,6 +53,9 @@ enum Commands {
         /// Force update hooks even if already initialized
         #[arg(short, long)]
         force: bool,
+        /// Only set up the .chainlink/issues.db database (skip rules, hooks, .claude)
+        #[arg(long)]
+        db_only: bool,
     },
 
     /// Issue lifecycle commands (create, show, list, close, ...)
@@ -1236,9 +1239,9 @@ fn run() -> Result<()> {
     let json = cli.json;
 
     match cli.command {
-        Commands::Init { force } => {
+        Commands::Init { force, db_only } => {
             let cwd = env::current_dir()?;
-            commands::init::run(&cwd, force)
+            commands::init::run(&cwd, force, db_only)
         }
 
         // ====== Canonical hierarchical commands ======
