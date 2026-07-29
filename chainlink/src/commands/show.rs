@@ -117,7 +117,8 @@ pub fn run(db: &Database, id: i64) -> Result<()> {
         if open_blockers.is_empty() {
             println!("Blocked by (open): (none)");
         } else {
-            let open_strs: Vec<String> = open_blockers.iter().map(|b| format_issue_id(*b)).collect();
+            let open_strs: Vec<String> =
+                open_blockers.iter().map(|b| format_issue_id(*b)).collect();
             println!("Blocked by (open): {}", open_strs.join(", "));
         }
     }
@@ -408,7 +409,11 @@ mod tests {
         db.close_issue(closed_blocker).unwrap();
 
         let all_blockers = db.get_blockers(issue_id).unwrap();
-        assert_eq!(all_blockers.len(), 2, "get_blockers should still return all");
+        assert_eq!(
+            all_blockers.len(),
+            2,
+            "get_blockers should still return all"
+        );
 
         let open = db.get_open_blockers(issue_id).unwrap();
         assert_eq!(open.len(), 1);
