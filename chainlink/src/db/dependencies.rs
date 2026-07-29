@@ -62,6 +62,18 @@ impl Database {
         Ok(blockers)
     }
 
+    pub fn get_open_blockers(&self, issue_id: i64) -> Result<Vec<i64>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT d.blocker_id FROM dependencies d
+             JOIN issues blocker ON d.blocker_id = blocker.id
+             WHERE d.blocked_id = ?1 AND blocker.status = 'open'",
+        )?;
+        let blockers = stmt
+            .query_map([issue_id], |row| row.get(0))?
+            .collect::<std::result::Result<Vec<i64>, _>>()?;
+        Ok(blockers)
+    }
+
     pub fn get_blocking(&self, issue_id: i64) -> Result<Vec<i64>> {
         let mut stmt = self
             .conn

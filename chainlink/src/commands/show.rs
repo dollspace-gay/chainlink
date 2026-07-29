@@ -13,6 +13,7 @@ struct IssueDetail {
     milestone: Option<crate::models::Milestone>,
     comments: Vec<crate::models::Comment>,
     blocked_by: Vec<i64>,
+    blocked_by_open: Vec<i64>,
     blocking: Vec<i64>,
     subissues: Vec<crate::models::Issue>,
     related: Vec<crate::models::Issue>,
@@ -31,6 +32,7 @@ pub fn run_json(db: &Database, id: i64) -> Result<()> {
         milestone: db.get_issue_milestone(id)?,
         comments: db.get_comments(id)?,
         blocked_by: db.get_blockers(id)?,
+        blocked_by_open: db.get_open_blockers(id)?,
         blocking: db.get_blocking(id)?,
         subissues: db.get_subissues(id)?,
         related: db.get_related_issues(id)?,
@@ -100,6 +102,7 @@ pub fn run(db: &Database, id: i64) -> Result<()> {
 
     // Dependencies
     let blockers = db.get_blockers(id)?;
+    let open_blockers = db.get_open_blockers(id)?;
     let blocking = db.get_blocking(id)?;
 
     println!();
@@ -108,6 +111,16 @@ pub fn run(db: &Database, id: i64) -> Result<()> {
     } else {
         let blocker_strs: Vec<String> = blockers.iter().map(|b| format_issue_id(*b)).collect();
         println!("Blocked by: {}", blocker_strs.join(", "));
+    }
+
+    if !blockers.is_empty() {
+        if open_blockers.is_empty() {
+            println!("Blocked by (open): (none)");
+        } else {
+            let open_strs: Vec<String> =
+                open_blockers.iter().map(|b| format_issue_id(*b)).collect();
+            println!("Blocked by (open): {}", open_strs.join(", "));
+        }
     }
 
     if blocking.is_empty() {
@@ -368,6 +381,94 @@ mod tests {
         run(&db, issue_id).unwrap();
         let issue = db.get_issue(issue_id).unwrap().unwrap();
         assert_eq!(issue.description, Some("".to_string()));
+    }
+
+    #[test]
+    fn test_blocked_by_open_all_open() {
+        let (db, _dir) = setup_test_db();
+        let blocker1 = db.create_issue("Blocker 1", None, "high").unwrap();
+        let blocker2 = db.create_issue("Blocker 2", None, "high").unwrap();
+        let issue_id = db.create_issue("Blocked", None, "medium").unwrap();
+        db.add_dependency(issue_id, blocker1).unwrap();
+        db.add_dependency(issue_id, blocker2).unwrap();
+
+        let open = db.get_open_blockers(issue_id).unwrap();
+        assert_eq!(open.len(), 2);
+        assert!(open.contains(&blocker1));
+        assert!(open.contains(&blocker2));
+    }
+
+    #[test]
+    fn test_blocked_by_open_filters_closed() {
+        let (db, _dir) = setup_test_db();
+        let open_blocker = db.create_issue("Open blocker", None, "high").unwrap();
+        let closed_blocker = db.create_issue("Closed blocker", None, "high").unwrap();
+        let issue_id = db.create_issue("Blocked", None, "medium").unwrap();
+        db.add_dependency(issue_id, open_blocker).unwrap();
+        db.add_dependency(issue_id, closed_blocker).unwrap();
+        db.close_issue(closed_blocker).unwrap();
+
+        let all_blockers = db.get_blockers(issue_id).unwrap();
+        assert_eq!(
+            all_blockers.len(),
+            2,
+            "get_blockers should still return all"
+        );
+
+        let open = db.get_open_blockers(issue_id).unwrap();
+        assert_eq!(open.len(), 1);
+        assert!(open.contains(&open_blocker));
+        assert!(!open.contains(&closed_blocker));
+    }
+
+    #[test]
+    fn test_blocked_by_open_all_closed() {
+        let (db, _dir) = setup_test_db();
+        let blocker1 = db.create_issue("Blocker 1", None, "high").unwrap();
+        let blocker2 = db.create_issue("Blocker 2", None, "high").unwrap();
+        let issue_id = db.create_issue("Blocked", None, "medium").unwrap();
+        db.add_dependency(issue_id, blocker1).unwrap();
+        db.add_dependency(issue_id, blocker2).unwrap();
+        db.close_issue(blocker1).unwrap();
+        db.close_issue(blocker2).unwrap();
+
+        let all_blockers = db.get_blockers(issue_id).unwrap();
+        assert_eq!(all_blockers.len(), 2);
+
+        let open = db.get_open_blockers(issue_id).unwrap();
+        assert!(open.is_empty());
+    }
+
+    #[test]
+    fn test_blocked_by_open_json_field() {
+        let (db, _dir) = setup_test_db();
+        let open_blocker = db.create_issue("Open blocker", None, "high").unwrap();
+        let closed_blocker = db.create_issue("Closed blocker", None, "high").unwrap();
+        let issue_id = db.create_issue("Blocked", None, "medium").unwrap();
+        db.add_dependency(issue_id, open_blocker).unwrap();
+        db.add_dependency(issue_id, closed_blocker).unwrap();
+        db.close_issue(closed_blocker).unwrap();
+
+        let detail = IssueDetail {
+            issue: db.get_issue(issue_id).unwrap().unwrap(),
+            labels: db.get_labels(issue_id).unwrap(),
+            milestone: None,
+            comments: db.get_comments(issue_id).unwrap(),
+            blocked_by: db.get_blockers(issue_id).unwrap(),
+            blocked_by_open: db.get_open_blockers(issue_id).unwrap(),
+            blocking: db.get_blocking(issue_id).unwrap(),
+            subissues: db.get_subissues(issue_id).unwrap(),
+            related: db.get_related_issues(issue_id).unwrap(),
+            relations: db.get_typed_relations(issue_id).unwrap(),
+        };
+
+        let json = serde_json::to_value(&detail).unwrap();
+        let blocked = json["blocked_by"].as_array().unwrap();
+        assert_eq!(blocked.len(), 2, "blocked_by should include all blockers");
+
+        let open = json["blocked_by_open"].as_array().unwrap();
+        assert_eq!(open.len(), 1, "blocked_by_open should filter closed");
+        assert!(open.iter().any(|v| v.as_i64() == Some(open_blocker)));
     }
 
     // ==================== Property-Based Tests ====================
