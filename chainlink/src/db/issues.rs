@@ -98,7 +98,10 @@ impl Database {
 
         for (idx, label) in label_filters.iter().enumerate() {
             let alias = format!("l{}", idx);
-            sql.push_str(&format!(" JOIN labels {} ON i.id = {}.issue_id AND {}.label = ?", alias, alias, alias));
+            sql.push_str(&format!(
+                " JOIN labels {} ON i.id = {}.issue_id AND {}.label = ?",
+                alias, alias, alias
+            ));
             params_vec.push(Box::new(label.clone()));
         }
 
