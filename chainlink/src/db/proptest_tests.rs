@@ -80,7 +80,7 @@ proptest! {
         for i in 0..count {
             db.create_issue(&format!("Issue {}", i), None, "medium").unwrap();
         }
-        let issues = db.list_issues(None, None, None).unwrap();
+        let issues = db.list_issues(None, &[], None).unwrap();
         prop_assert_eq!(issues.len(), count);
     }
 
@@ -171,14 +171,14 @@ proptest! {
         }
 
         // Verify children exist
-        let issues_before = db.list_issues(None, None, None).unwrap();
+        let issues_before = db.list_issues(None, &[], None).unwrap();
         prop_assert_eq!(issues_before.len(), child_count + 1);
 
         // Delete parent
         db.delete_issue(parent_id).unwrap();
 
         // All children should be gone too
-        let issues_after = db.list_issues(None, None, None).unwrap();
+        let issues_after = db.list_issues(None, &[], None).unwrap();
         prop_assert_eq!(issues_after.len(), 0);
 
         // Verify each child is gone

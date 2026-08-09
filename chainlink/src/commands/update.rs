@@ -193,7 +193,7 @@ mod tests {
         assert_eq!(issue.title, malicious);
 
         // Verify database is intact
-        let issues = db.list_issues(None, None, None).unwrap();
+        let issues = db.list_issues(None, &[], None).unwrap();
         assert!(!issues.is_empty());
     }
 

@@ -87,7 +87,7 @@ impl Database {
     pub fn list_issues(
         &self,
         status_filter: Option<&str>,
-        label_filter: Option<&str>,
+        label_filters: &[String],
         priority_filter: Option<&str>,
     ) -> Result<Vec<Issue>> {
         let mut sql = String::from(
@@ -96,8 +96,13 @@ impl Database {
         let mut conditions = Vec::new();
         let mut params_vec: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
 
-        if label_filter.is_some() {
-            sql.push_str(" JOIN labels l ON i.id = l.issue_id");
+        for (idx, label) in label_filters.iter().enumerate() {
+            let alias = format!("l{}", idx);
+            sql.push_str(&format!(
+                " JOIN labels {} ON i.id = {}.issue_id AND {}.label = ?",
+                alias, alias, alias
+            ));
+            params_vec.push(Box::new(label.clone()));
         }
 
         if let Some(status) = status_filter {
@@ -106,11 +111,6 @@ impl Database {
                 conditions.push("i.status = ?".to_string());
                 params_vec.push(Box::new(status.to_string()));
             }
-        }
-
-        if let Some(label) = label_filter {
-            conditions.push("l.label = ?".to_string());
-            params_vec.push(Box::new(label.to_string()));
         }
 
         if let Some(priority) = priority_filter {

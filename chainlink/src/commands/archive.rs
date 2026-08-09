@@ -141,7 +141,7 @@ mod tests {
             !archived.iter().any(|i| i.id == id),
             "Issue should no longer be archived"
         );
-        let closed = db.list_issues(Some("closed"), None, None).unwrap();
+        let closed = db.list_issues(Some("closed"), &[], None).unwrap();
         assert!(
             closed.iter().any(|i| i.id == id),
             "Issue should be back in closed list"
@@ -217,8 +217,8 @@ mod tests {
         db.close_issue(id).unwrap();
         archive(&db, id).unwrap();
 
-        let open_issues = db.list_issues(Some("open"), None, None).unwrap();
-        let closed_issues = db.list_issues(Some("closed"), None, None).unwrap();
+        let open_issues = db.list_issues(Some("open"), &[], None).unwrap();
+        let closed_issues = db.list_issues(Some("closed"), &[], None).unwrap();
         assert!(!open_issues.iter().any(|i| i.id == id));
         assert!(!closed_issues.iter().any(|i| i.id == id));
     }

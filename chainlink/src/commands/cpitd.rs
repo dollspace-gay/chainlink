@@ -117,7 +117,7 @@ fn dedup_marker(file_a: &str, file_b: &str) -> String {
 
 fn find_existing_clone_issue(db: &Database, file_a: &str, file_b: &str) -> Result<Option<i64>> {
     let marker = dedup_marker(file_a, file_b);
-    let issues = db.list_issues(Some("open"), Some("cpitd"), None)?;
+    let issues = db.list_issues(Some("open"), &["cpitd".to_string()], None)?;
     for issue in issues {
         if let Some(ref desc) = issue.description {
             if desc.contains(&marker) {
@@ -293,7 +293,7 @@ pub fn scan(
 }
 
 pub fn status(db: &Database) -> Result<()> {
-    let issues = db.list_issues(Some("open"), Some("cpitd"), None)?;
+    let issues = db.list_issues(Some("open"), &["cpitd".to_string()], None)?;
 
     if issues.is_empty() {
         println!("No open cpitd clone issues.");
@@ -308,7 +308,7 @@ pub fn status(db: &Database) -> Result<()> {
 }
 
 pub fn clear(db: &Database) -> Result<()> {
-    let issues = db.list_issues(Some("open"), Some("cpitd"), None)?;
+    let issues = db.list_issues(Some("open"), &["cpitd".to_string()], None)?;
 
     if issues.is_empty() {
         println!("No open cpitd clone issues to close.");
