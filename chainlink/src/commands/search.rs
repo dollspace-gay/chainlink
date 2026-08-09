@@ -178,7 +178,7 @@ mod tests {
         db.create_issue("Normal issue", None, "medium").unwrap();
 
         run(&db, "'; DROP TABLE issues; --").unwrap();
-        let issues = db.list_issues(None, None, None).unwrap();
+        let issues = db.list_issues(None, &[], None).unwrap();
         assert_eq!(
             issues.len(),
             1,

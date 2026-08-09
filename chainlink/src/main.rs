@@ -205,9 +205,9 @@ enum Commands {
         /// Filter by status (open, closed, all)
         #[arg(short, long, default_value = "open")]
         status: String,
-        /// Filter by label
+        /// Filter by label (repeatable, AND logic)
         #[arg(short, long)]
-        label: Option<String>,
+        label: Vec<String>,
         /// Filter by priority
         #[arg(short, long)]
         priority: Option<String>,
@@ -256,9 +256,9 @@ enum Commands {
     /// Close all issues matching filters (shortcut for `issue close-all`)
     #[command(hide = true)]
     CloseAll {
-        /// Filter by label
+        /// Filter by label (repeatable, AND logic)
         #[arg(short, long)]
-        label: Option<String>,
+        label: Vec<String>,
         /// Filter by priority
         #[arg(short, long)]
         priority: Option<String>,
@@ -481,9 +481,9 @@ enum IssueCommands {
         /// Filter by status (open, closed, all)
         #[arg(short, long, default_value = "open")]
         status: String,
-        /// Filter by label
+        /// Filter by label (repeatable, AND logic)
         #[arg(short, long)]
-        label: Option<String>,
+        label: Vec<String>,
         /// Filter by priority
         #[arg(short, long)]
         priority: Option<String>,
@@ -527,9 +527,9 @@ enum IssueCommands {
 
     /// Close all issues matching filters
     CloseAll {
-        /// Filter by label
+        /// Filter by label (repeatable, AND logic)
         #[arg(short, long)]
-        label: Option<String>,
+        label: Vec<String>,
         /// Filter by priority
         #[arg(short, long)]
         priority: Option<String>,
@@ -1037,9 +1037,9 @@ fn dispatch_issue(action: IssueCommands, quiet: bool, json: bool) -> Result<()> 
         } => {
             let db = get_db()?;
             if json {
-                commands::list::run_json(&db, Some(&status), label.as_deref(), priority.as_deref())
+                commands::list::run_json(&db, Some(&status), &label, priority.as_deref())
             } else {
-                commands::list::run(&db, Some(&status), label.as_deref(), priority.as_deref())
+                commands::list::run(&db, Some(&status), &label, priority.as_deref())
             }
         }
 
@@ -1096,7 +1096,7 @@ fn dispatch_issue(action: IssueCommands, quiet: bool, json: bool) -> Result<()> 
             let chainlink_dir = find_chainlink_dir()?;
             commands::status::close_all(
                 &db,
-                label.as_deref(),
+                &label,
                 priority.as_deref(),
                 !no_changelog,
                 &chainlink_dir,

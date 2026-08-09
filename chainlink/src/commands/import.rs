@@ -132,7 +132,7 @@ mod tests {
         fs::write(&import_path, json).unwrap();
         let result = run_json(&db, &import_path);
         assert!(result.is_ok());
-        let issues = db.list_issues(Some("all"), None, None).unwrap();
+        let issues = db.list_issues(Some("all"), &[], None).unwrap();
         assert_eq!(issues.len(), 1);
     }
 
@@ -146,7 +146,7 @@ mod tests {
         let import_path = dir.path().join("import.json");
         fs::write(&import_path, json).unwrap();
         run_json(&db, &import_path).unwrap();
-        let issues = db.list_issues(Some("all"), None, None).unwrap();
+        let issues = db.list_issues(Some("all"), &[], None).unwrap();
         assert_eq!(issues.len(), 2);
     }
 
@@ -157,7 +157,7 @@ mod tests {
         let import_path = dir.path().join("import.json");
         fs::write(&import_path, json).unwrap();
         run_json(&db, &import_path).unwrap();
-        let issues = db.list_issues(Some("closed"), None, None).unwrap();
+        let issues = db.list_issues(Some("closed"), &[], None).unwrap();
         assert_eq!(issues.len(), 1);
     }
 
@@ -170,7 +170,7 @@ mod tests {
         let import_path = dir.path().join("import.json");
         fs::write(&import_path, json).unwrap();
         run_json(&db, &import_path).unwrap();
-        let issues = db.list_issues(Some("all"), None, None).unwrap();
+        let issues = db.list_issues(Some("all"), &[], None).unwrap();
         let labels = db.get_labels(issues[0].id).unwrap();
         assert!(labels.contains(&"bug".to_string()));
     }

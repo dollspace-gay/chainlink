@@ -221,7 +221,7 @@ mod tests {
         run_force(&db, id2).unwrap();
 
         // Only id3 should remain
-        let issues = db.list_issues(None, None, None).unwrap();
+        let issues = db.list_issues(None, &[], None).unwrap();
         assert_eq!(issues.len(), 1);
         assert_eq!(issues[0].id, id3);
     }

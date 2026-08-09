@@ -43,7 +43,7 @@ fn print_tree_recursive(
 
 pub fn run(db: &Database, status_filter: Option<&str>) -> Result<()> {
     // Get all top-level issues (no parent)
-    let all_issues = db.list_issues(status_filter, None, None)?;
+    let all_issues = db.list_issues(status_filter, &[], None)?;
     let top_level: Vec<_> = all_issues
         .into_iter()
         .filter(|i| i.parent_id.is_none())
@@ -98,7 +98,7 @@ mod tests {
     fn test_run_empty() {
         let (db, _dir) = setup_test_db();
         run(&db, None).unwrap();
-        let issues = db.list_issues(None, None, None).unwrap();
+        let issues = db.list_issues(None, &[], None).unwrap();
         assert!(issues.is_empty());
     }
 
@@ -107,7 +107,7 @@ mod tests {
         let (db, _dir) = setup_test_db();
         let id = db.create_issue("Test issue", None, "medium").unwrap();
         run(&db, None).unwrap();
-        let issues = db.list_issues(None, None, None).unwrap();
+        let issues = db.list_issues(None, &[], None).unwrap();
         assert_eq!(issues.len(), 1);
         assert_eq!(issues[0].id, id);
     }
@@ -149,7 +149,7 @@ mod tests {
         let open_id = db.create_issue("Open issue", None, "medium").unwrap();
         db.close_issue(closed_id).unwrap();
         run(&db, Some("open")).unwrap();
-        let open_issues = db.list_issues(Some("open"), None, None).unwrap();
+        let open_issues = db.list_issues(Some("open"), &[], None).unwrap();
         assert_eq!(open_issues.len(), 1);
         assert_eq!(open_issues[0].id, open_id);
     }
@@ -160,7 +160,7 @@ mod tests {
         let id = db.create_issue("Issue", None, "medium").unwrap();
         db.close_issue(id).unwrap();
         run(&db, Some("closed")).unwrap();
-        let closed = db.list_issues(Some("closed"), None, None).unwrap();
+        let closed = db.list_issues(Some("closed"), &[], None).unwrap();
         assert_eq!(closed.len(), 1);
         assert_eq!(closed[0].id, id);
     }
@@ -172,7 +172,7 @@ mod tests {
         let id = db.create_issue("Closed issue", None, "medium").unwrap();
         db.close_issue(id).unwrap();
         run(&db, Some("all")).unwrap();
-        let all = db.list_issues(Some("all"), None, None).unwrap();
+        let all = db.list_issues(Some("all"), &[], None).unwrap();
         assert_eq!(all.len(), 2);
     }
 

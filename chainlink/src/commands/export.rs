@@ -67,7 +67,7 @@ fn export_issue(db: &Database, issue: &Issue) -> Result<ExportedIssue> {
 }
 
 pub fn run_json(db: &Database, output_path: Option<&str>) -> Result<()> {
-    let issues = db.list_issues(Some("all"), None, None)?;
+    let issues = db.list_issues(Some("all"), &[], None)?;
 
     let exported: Vec<ExportedIssue> = issues
         .iter()
@@ -96,7 +96,7 @@ pub fn run_json(db: &Database, output_path: Option<&str>) -> Result<()> {
 }
 
 pub fn run_markdown(db: &Database, output_path: Option<&str>) -> Result<()> {
-    let issues = db.list_issues(Some("all"), None, None)?;
+    let issues = db.list_issues(Some("all"), &[], None)?;
     let mut md = String::new();
 
     md.push_str("# Chainlink Issues Export\n\n");

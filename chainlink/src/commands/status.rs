@@ -149,12 +149,12 @@ fn append_to_changelog(path: &Path, category: &str, entry: &str) -> Result<()> {
 
 pub fn close_all(
     db: &Database,
-    label_filter: Option<&str>,
+    label_filters: &[String],
     priority_filter: Option<&str>,
     update_changelog: bool,
     chainlink_dir: &Path,
 ) -> Result<()> {
-    let issues = db.list_issues(Some("open"), label_filter, priority_filter)?;
+    let issues = db.list_issues(Some("open"), label_filters, priority_filter)?;
 
     if issues.is_empty() {
         println!("No matching open issues found.");

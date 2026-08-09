@@ -73,7 +73,7 @@ fn test_list_issues() {
     db.create_issue("Issue 2", None, "medium").unwrap();
     db.create_issue("Issue 3", None, "high").unwrap();
 
-    let issues = db.list_issues(None, None, None).unwrap();
+    let issues = db.list_issues(None, &[], None).unwrap();
     assert_eq!(issues.len(), 3);
 }
 
@@ -85,15 +85,15 @@ fn test_list_issues_filter_by_status() {
     let id2 = db.create_issue("To be closed", None, "medium").unwrap();
     db.close_issue(id2).unwrap();
 
-    let open_issues = db.list_issues(Some("open"), None, None).unwrap();
+    let open_issues = db.list_issues(Some("open"), &[], None).unwrap();
     assert_eq!(open_issues.len(), 1);
     assert_eq!(open_issues[0].id, id1);
 
-    let closed_issues = db.list_issues(Some("closed"), None, None).unwrap();
+    let closed_issues = db.list_issues(Some("closed"), &[], None).unwrap();
     assert_eq!(closed_issues.len(), 1);
     assert_eq!(closed_issues[0].id, id2);
 
-    let all_issues = db.list_issues(Some("all"), None, None).unwrap();
+    let all_issues = db.list_issues(Some("all"), &[], None).unwrap();
     assert_eq!(all_issues.len(), 2);
 }
 
@@ -104,7 +104,7 @@ fn test_list_issues_filter_by_priority() {
     db.create_issue("Low priority", None, "low").unwrap();
     db.create_issue("High priority", None, "high").unwrap();
 
-    let high_issues = db.list_issues(None, None, Some("high")).unwrap();
+    let high_issues = db.list_issues(None, &[], Some("high")).unwrap();
     assert_eq!(high_issues.len(), 1);
     assert_eq!(high_issues[0].priority, "high");
 }
@@ -288,7 +288,7 @@ fn test_list_issues_filter_by_label() {
     db.add_label(id1, "bug").unwrap();
     db.add_label(id2, "feature").unwrap();
 
-    let bug_issues = db.list_issues(None, Some("bug"), None).unwrap();
+    let bug_issues = db.list_issues(None, &["bug".to_string()], None).unwrap();
     assert_eq!(bug_issues.len(), 1);
     assert_eq!(bug_issues[0].id, id1);
 }
@@ -705,7 +705,7 @@ fn test_sql_injection_in_title() {
     assert_eq!(issue.title, malicious);
 
     // Database should still be intact
-    let issues = db.list_issues(None, None, None).unwrap();
+    let issues = db.list_issues(None, &[], None).unwrap();
     assert!(!issues.is_empty());
 }
 
@@ -750,7 +750,7 @@ fn test_sql_injection_in_search() {
     assert!(results.is_empty());
 
     // Database should still be intact
-    let issues = db.list_issues(None, None, None).unwrap();
+    let issues = db.list_issues(None, &[], None).unwrap();
     assert!(!issues.is_empty());
 }
 
@@ -966,7 +966,7 @@ fn test_corrupted_db_file_truncated() {
         }
         Ok(db) => {
             // If SQLite somehow recovers, verify the original data is gone
-            let issues = db.list_issues(Some("all"), None, None).unwrap();
+            let issues = db.list_issues(Some("all"), &[], None).unwrap();
             assert!(
                 issues.is_empty(),
                 "Truncated DB should not retain original data"

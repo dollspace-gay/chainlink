@@ -7,10 +7,10 @@ use crate::utils::{format_issue_id, truncate};
 pub fn run_json(
     db: &Database,
     status: Option<&str>,
-    label: Option<&str>,
+    labels: &[String],
     priority: Option<&str>,
 ) -> Result<()> {
-    let issues = db.list_issues(status, label, priority)?;
+    let issues = db.list_issues(status, labels, priority)?;
     println!("{}", serde_json::to_string_pretty(&issues)?);
     Ok(())
 }
@@ -18,10 +18,10 @@ pub fn run_json(
 pub fn run(
     db: &Database,
     status: Option<&str>,
-    label: Option<&str>,
+    labels: &[String],
     priority: Option<&str>,
 ) -> Result<()> {
-    let issues = db.list_issues(status, label, priority)?;
+    let issues = db.list_issues(status, labels, priority)?;
 
     if issues.is_empty() {
         println!("No issues found.");
@@ -107,8 +107,8 @@ mod tests {
     #[test]
     fn test_run_empty() {
         let (db, _dir) = setup_test_db();
-        run(&db, None, None, None).unwrap();
-        let issues = db.list_issues(None, None, None).unwrap();
+        run(&db, None, &[], None).unwrap();
+        let issues = db.list_issues(None, &[], None).unwrap();
         assert!(issues.is_empty());
     }
 
@@ -119,8 +119,8 @@ mod tests {
         db.create_issue("Issue 2", None, "medium").unwrap();
         db.create_issue("Issue 3", None, "low").unwrap();
 
-        run(&db, None, None, None).unwrap();
-        let issues = db.list_issues(None, None, None).unwrap();
+        run(&db, None, &[], None).unwrap();
+        let issues = db.list_issues(None, &[], None).unwrap();
         assert_eq!(issues.len(), 3);
     }
 
@@ -131,11 +131,11 @@ mod tests {
         let id2 = db.create_issue("Closed issue", None, "medium").unwrap();
         db.close_issue(id2).unwrap();
 
-        let issues = db.list_issues(Some("open"), None, None).unwrap();
+        let issues = db.list_issues(Some("open"), &[], None).unwrap();
         assert!(issues.iter().any(|i| i.id == id1));
         assert!(!issues.iter().any(|i| i.id == id2));
 
-        let result = run(&db, Some("open"), None, None);
+        let result = run(&db, Some("open"), &[], None);
         assert!(result.is_ok());
     }
 
@@ -146,11 +146,11 @@ mod tests {
         let id2 = db.create_issue("Closed issue", None, "medium").unwrap();
         db.close_issue(id2).unwrap();
 
-        let issues = db.list_issues(Some("closed"), None, None).unwrap();
+        let issues = db.list_issues(Some("closed"), &[], None).unwrap();
         assert!(!issues.iter().any(|i| i.id == id1));
         assert!(issues.iter().any(|i| i.id == id2));
 
-        let result = run(&db, Some("closed"), None, None);
+        let result = run(&db, Some("closed"), &[], None);
         assert!(result.is_ok());
     }
 
@@ -161,8 +161,8 @@ mod tests {
         let id2 = db.create_issue("Closed issue", None, "medium").unwrap();
         db.close_issue(id2).unwrap();
 
-        run(&db, Some("all"), None, None).unwrap();
-        let issues = db.list_issues(Some("all"), None, None).unwrap();
+        run(&db, Some("all"), &[], None).unwrap();
+        let issues = db.list_issues(Some("all"), &[], None).unwrap();
         assert_eq!(issues.len(), 2);
         assert!(issues.iter().any(|i| i.id == id1));
         assert!(issues.iter().any(|i| i.id == id2));
@@ -176,11 +176,11 @@ mod tests {
         db.add_label(id1, "bug").unwrap();
         db.add_label(id2, "feature").unwrap();
 
-        let issues = db.list_issues(None, Some("bug"), None).unwrap();
+        let issues = db.list_issues(None, &["bug".to_string()], None).unwrap();
         assert!(issues.iter().any(|i| i.id == id1));
         assert!(!issues.iter().any(|i| i.id == id2));
 
-        let result = run(&db, None, Some("bug"), None);
+        let result = run(&db, None, &["bug".to_string()], None);
         assert!(result.is_ok());
     }
 
@@ -190,11 +190,11 @@ mod tests {
         let id1 = db.create_issue("High priority", None, "high").unwrap();
         let id2 = db.create_issue("Low priority", None, "low").unwrap();
 
-        let issues = db.list_issues(None, None, Some("high")).unwrap();
+        let issues = db.list_issues(None, &[], Some("high")).unwrap();
         assert!(issues.iter().any(|i| i.id == id1));
         assert!(!issues.iter().any(|i| i.id == id2));
 
-        let result = run(&db, None, None, Some("high"));
+        let result = run(&db, None, &[], Some("high"));
         assert!(result.is_ok());
     }
 
@@ -209,13 +209,13 @@ mod tests {
         db.add_label(id3, "feature").unwrap();
 
         let issues = db
-            .list_issues(Some("open"), Some("bug"), Some("high"))
+            .list_issues(Some("open"), &["bug".to_string()], Some("high"))
             .unwrap();
         assert!(issues.iter().any(|i| i.id == id1));
         assert!(!issues.iter().any(|i| i.id == id2));
         assert!(!issues.iter().any(|i| i.id == id3));
 
-        let result = run(&db, Some("open"), Some("bug"), Some("high"));
+        let result = run(&db, Some("open"), &["bug".to_string()], Some("high"));
         assert!(result.is_ok());
     }
 
@@ -225,7 +225,7 @@ mod tests {
         let long_title = "A".repeat(100);
         db.create_issue(&long_title, None, "medium").unwrap();
 
-        let result = run(&db, None, None, None);
+        let result = run(&db, None, &[], None);
         assert!(result.is_ok());
     }
 
@@ -235,7 +235,7 @@ mod tests {
         db.create_issue("日本語タイトル 🎉", None, "medium")
             .unwrap();
 
-        let result = run(&db, None, None, None);
+        let result = run(&db, None, &[], None);
         assert!(result.is_ok());
     }
 
@@ -244,14 +244,38 @@ mod tests {
         let (db, _dir) = setup_test_db();
         db.create_issue("Issue", None, "medium").unwrap();
 
-        run(&db, None, Some("nonexistent-label"), None).unwrap();
+        run(&db, None, &["nonexistent-label".to_string()], None).unwrap();
         let issues = db
-            .list_issues(None, Some("nonexistent-label"), None)
+            .list_issues(None, &["nonexistent-label".to_string()], None)
             .unwrap();
         assert!(
             issues.is_empty(),
             "No issues should match nonexistent label"
         );
+    }
+
+    #[test]
+    fn test_run_multi_label_and_filter() {
+        let (db, _dir) = setup_test_db();
+        let id1 = db.create_issue("Bug with feature", None, "high").unwrap();
+        let id2 = db.create_issue("Bug only", None, "medium").unwrap();
+        let id3 = db.create_issue("Feature only", None, "medium").unwrap();
+        db.add_label(id1, "bug").unwrap();
+        db.add_label(id1, "feature").unwrap();
+        db.add_label(id2, "bug").unwrap();
+        db.add_label(id3, "feature").unwrap();
+
+        // AND filter: must have both "bug" AND "feature"
+        let issues = db
+            .list_issues(None, &["bug".to_string(), "feature".to_string()], None)
+            .unwrap();
+        assert_eq!(issues.len(), 1);
+        assert!(issues.iter().any(|i| i.id == id1));
+        assert!(!issues.iter().any(|i| i.id == id2));
+        assert!(!issues.iter().any(|i| i.id == id3));
+
+        let result = run(&db, None, &["bug".to_string(), "feature".to_string()], None);
+        assert!(result.is_ok());
     }
 
     proptest! {
@@ -281,8 +305,8 @@ mod tests {
             db.create_issue("Match", None, &priority).unwrap();
             db.create_issue("Other", None, "low").unwrap();
 
-            run(&db, None, None, Some(&priority)).unwrap();
-            let filtered = db.list_issues(None, None, Some(&priority)).unwrap();
+            run(&db, None, &[], Some(&priority)).unwrap();
+            let filtered = db.list_issues(None, &[], Some(&priority)).unwrap();
             prop_assert!(filtered.iter().all(|i| i.priority == priority));
         }
     }

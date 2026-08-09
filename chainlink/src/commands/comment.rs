@@ -166,7 +166,7 @@ mod tests {
         assert_eq!(comments[0].content, malicious);
 
         // Verify database integrity
-        let issues = db.list_issues(None, None, None).unwrap();
+        let issues = db.list_issues(None, &[], None).unwrap();
         assert!(!issues.is_empty());
     }
 
